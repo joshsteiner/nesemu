@@ -11,12 +11,12 @@
 #define RESET_VEC    0xFFFC
 #define IRQ_BRK_VEC  0xFFFE
 
-
 #define PTR2ADDR(ptr) ((ptr) - CPU.mem)
 
 #define AS_ADDR(hi, lo) (hi << 8 | lo)
 #define HI_BYTE(addr) (addr >> 8)
 #define LO_BYTE(addr) (addr & 0xFF)
+
 
 struct {
 	uint8_t  A, X, Y, S, P;
@@ -33,6 +33,7 @@ enum Status {
 	OVERFLOW          = bit(6),
 	NEGATIVE          = bit(7)
 };
+
 
 uint8_t read_mem(int addr);
 
@@ -97,10 +98,6 @@ uint8_t read_mem(int addr)
 {
 	/* page wrap */
 	if (addr >= 0) {
-		// page wrap
-		if ((addr & 0xFF) == 0xFF) {
-
-		}
 		return CPU.mem[addr];
 	}
 
@@ -123,7 +120,6 @@ void write_mem(int addr, uint8_t val)
 	}
 }
 
-
 /* Reads address whose LO byte is pointed to by addr. */
 uint16_t read_addr(uint16_t addr) 
 {
@@ -134,7 +130,6 @@ uint16_t read_addr(uint16_t addr)
 	);
 }
 
-
 uint8_t peek_arg(void) 
 {
 	return read_mem(CPU.PC + 1);
@@ -143,7 +138,6 @@ uint8_t peek_arg(void)
 uint16_t peek_addr_arg(void) 
 {
 	return AS_ADDR(read_mem(CPU.PC + 2), read_mem(CPU.PC + 1));
-	//return read_addr(CPU.PC + 1);
 }
 
 void ZN(uint8_t val) 
@@ -171,7 +165,6 @@ static const struct mode NAME = {                    \
 	.name = #NAME                                \
 };
 
-
 MODE(IMPLIED,      NONE,  "%s         ",    INVALID_ADDR)
 MODE(ACCUMULATOR,  NONE,  "%s A       ",    A_ADDR)
 MODE(IMMEDIATE,    BYTE,  "%s #$%02X   ",   CPU.PC + 1)
@@ -182,23 +175,19 @@ MODE(ZERO_PAGE_Y,  BYTE,  "%s $%02X,Y   ",  (peek_arg() + CPU.Y) % PAGE_SIZE)
 MODE(ABSOLUTE,     ADDR,  "%s $%04X   ",    peek_addr_arg())
 MODE(ABSOLUTE_X,   ADDR,  "%s $%04X,X ",    (peek_addr_arg() + CPU.X) % MEMORY_SIZE)
 MODE(ABSOLUTE_Y,   ADDR,  "%s $%04X,Y ",    (peek_addr_arg() + CPU.Y) % MEMORY_SIZE)
-// MODE(INDIRECT,     ADDR,  "%s ($%04X) ",    read_addr(peek_addr_arg()))
+MODE(INDIRECT,     ADDR,  "%s ($%04X) ",    read_addr(peek_addr_arg()))
 
-MODE(INDIRECT,     ADDR,  "%s ($%04X) ",    read_addr(peek_addr_arg()))  // TODO: ???
-
-//MODE(INDIRECT_X,   BYTE,  "%s ($%02X,X) ",  read_addr((peek_arg() + CPU.X) % PAGE_SIZE)) 
 MODE(INDIRECT_X,   BYTE,  "%s ($%02X,X) ",  AS_ADDR(
 	read_mem((peek_arg() + CPU.X + 1) % PAGE_SIZE),
 	read_mem((peek_arg() + CPU.X) % PAGE_SIZE)
 ))
 
-// MODE(INDIRECT_Y,   BYTE,  "%s ($%02X),Y ",  (read_addr(peek_arg() + CPU.Y)) % PAGE_SIZE)
-MODE(INDIRECT_Y,   BYTE,  "%s ($%02X),Y ",  (AS_ADDR(
-	read_mem((peek_arg() + 1) % PAGE_SIZE),
-	read_mem(peek_arg()))
-	+ CPU.Y) % MEMORY_SIZE   // stays on page zero?
+MODE(INDIRECT_Y,   BYTE,  "%s ($%02X),Y ",  
+	(AS_ADDR(
+		read_mem((peek_arg() + 1) % PAGE_SIZE), 
+		read_mem(peek_arg())
+	) + CPU.Y) % MEMORY_SIZE 
 )
-
 
 
 struct instr {
@@ -244,7 +233,6 @@ INSTR(TYA, { ZN(CPU.A = CPU.Y); })
 INSTR(TXS, { CPU.S = CPU.X; })
 INSTR(TSX, { ZN(CPU.X = CPU.S); })
 
-// TODO: set 5th bit? set BREAK?
 INSTR(PHP, { push(CPU.P | bit(5) | BREAK); })
 INSTR(PHA, { push(CPU.A); })
 
@@ -376,7 +364,6 @@ struct op {
 	struct mode mode;
 	struct cycles cycles;
 };
-
 
 #define INVALID { { 0,0 }, { 0,0,0,0 }, { 0,0 } } 
 
@@ -624,9 +611,7 @@ int step_CPU(void)
 		break;
 	}
 
-	if (jumped) {
-	//	CPU.PC++;
-	} else {
+	if (!jumped) {
 		CPU.PC += op.mode.arg + 1;
 	}
 
@@ -659,10 +644,6 @@ void run_nestest(void)
 	JSR_impl(ABSOLUTE_impl);
 	
 	do {
-		if (CPU.PC == 0xDB7B) {
-			// debug
-			int x = 1;
-		}
 		step_CPU();
 		if (CPU.mem[0x00] != zero) {
 			zero = CPU.mem[0x00];
