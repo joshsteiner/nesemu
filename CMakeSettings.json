@@ -1,0 +1,18 @@
+{
+  "environments": [
+    {
+      "BuildDir": "${workspaceRoot}\\build"
+    }
+  ],
+ 
+  "configurations": [
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      // Inherit the defaults for using the MSVC x64 compiler.
+      "inheritEnvironments": [ "msvc_x64" ],
+      "buildRoot": "${env.BuildDir}\\${name}"
+    }
+  ]
+}
