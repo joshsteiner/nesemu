@@ -4,6 +4,7 @@
 #include <memory>
 #include <cstdint>
 #include <sstream>
+#include <cstdio>
 
 #include "nesemu.h"
 #include "cart.h"
@@ -18,6 +19,8 @@ const uint16_t StackPage = 0x0100;
 const uint16_t NmiVecAddr = 0xFFFA;
 const uint16_t ResetVecAddr = 0xFFFC;
 const uint16_t IrqBrkVecAddr = 0xFFFE;
+
+const unsigned CpuCycleWraparound = 341;
 
 // negative numbers point to registers
 // non-negative to normal memory addresses
@@ -127,7 +130,12 @@ struct CpuSnapshot : public CpuState
 			<< std::hex
 			<< "CpuSnapshot{"
 			<< "PC=" << program_counter << ';'
-			// TODO: instr
+			<< "instr=[";
+		for (auto instr : curr_instr) {
+			strm << (int)instr << ';';
+		}
+		strm 
+			<< ']'
 			<< "A=" << (int)a << ';'
 			<< "X=" << (int)x << ';'
 			<< "Y=" << (int)y << ';'
@@ -189,11 +197,11 @@ private:
 
 	auto get_addr(Mode mode) -> ExtendedAddr;
 	auto get_arg_size(Mode mode) -> unsigned;
-	auto exec_instr(Instruction instr, ExtPtr ptr) -> bool;
+	auto exec_instr(Instruction instr, ExtPtr ptr) -> std::pair<bool, bool>;
 	auto get_op(uint8_t opcode) -> Op;
 
 public:
-	auto step() -> unsigned;
+	auto step() -> void;
 	auto reset() -> void;
 
 	auto load_cart(const Cartridge& cart) -> void;

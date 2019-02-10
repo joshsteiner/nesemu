@@ -84,7 +84,7 @@ auto Cpu::peek_addr_arg() -> uint16_t
 auto Cpu::zn(uint8_t val) -> void
 {
 	status.zero = !val;
-	status.negative = val & bit(7);
+	status.negative = val & bit(7) ? 1 : 0;
 }
 
 auto Cpu::get_addr(Mode mode) -> ExtendedAddr
@@ -147,8 +147,11 @@ auto Cpu::get_arg_size(Mode mode) -> unsigned
 	}
 }
 
-auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
+auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> std::pair<bool, bool>
 {
+	bool jumped = false;
+	bool page_crossed = false;
+
 	switch (instr) {
 	case Nop:
 		break;
@@ -210,10 +213,10 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
 		zn(a = y);
 		break;
 	case Txs:
-		status.raw = x;
+		stack_ptr = x;
 		break;
 	case Tsx:
-		zn(x = status.raw);
+		zn(x = stack_ptr);
 		break;
 	case Php:
 		push(status.raw | bit(4) | bit(5));
@@ -230,51 +233,51 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
 	case Bcs:
 		if (status.carry) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Bcc:
 		if (!status.carry) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Beq:
 		if (status.zero) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Bne:
 		if (!status.zero) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Bmi:
 		if (status.negative) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Bpl:
 		if (!status.negative) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Bvs:
 		if (status.overflow) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Bvc:
 		if (!status.overflow) {
 			program_counter = m.addr();
-			return true;
+			jumped = true;
 		}
-		return false;
+		break;
 	case Lda:
 		zn(a = *m);
 		break;
@@ -295,23 +298,23 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
 		break;
 	case Bit:
 		status.zero = (a & *m) == 0;
-		status.overflow = *m & bit(6);
-		status.negative = *m & bit(7);
+		status.overflow = *m & bit(6) ? 1 : 0;
+		status.negative = *m & bit(7) ? 1 : 0;
 		break;
 	case Cmp:
 		status.carry = a >= *m;
 		status.zero = a == *m;
-		status.negative = (a - *m) & bit(7);
+		status.negative = (a - *m) & bit(7) ? 1 : 0;
 		break;
 	case Cpx:
 		status.carry = x >= *m;
 		status.zero = x == *m;
-		status.negative = (x - *m) & bit(7);
+		status.negative = (x - *m) & bit(7) ? 1 : 0;
 		break;
 	case Cpy:
 		status.carry = y >= *m;
 		status.zero = y == *m;
-		status.negative = (y - *m) & bit(7);
+		status.negative = (y - *m) & bit(7) ? 1 : 0;
 		break;
 	case And:
 		zn(a &= *m);
@@ -323,24 +326,24 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
 		zn(a ^= *m);
 		break;
 	case Asl:
-		status.carry = *m & bit(7);
+		status.carry = *m & bit(7) ? 1 : 0;
 		zn(*m <<= 1);
 		break;
 	case Lsr:
-		status.carry = *m & bit(0);
+		status.carry = *m & bit(0) ? 1 : 0;
 		zn(*m >>= 1);
 		break;
 	case Rol:
 	{
 		auto old_carry = status.carry;
-		status.carry = *m & bit(7);
+		status.carry = *m & bit(7) ? 1 : 0;
 		zn(*m = *m << 1 | old_carry);
 		break;
 	}
 	case Ror:
 	{
 		auto old_carry = status.carry;
-		status.carry = *m & bit(0);
+		status.carry = *m & bit(0) ? 1 : 0;
 		zn(*m = *m >> 1 | old_carry << 7);
 		break;
 	}
@@ -349,7 +352,7 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
 		auto old_a = a;
 		zn(a += *m + status.carry);
 		status.carry = old_a + *m + status.carry > 0xFF;
-		status.overflow = !((old_a ^ *m) & bit(7)) && (old_a ^ a) & bit(7);
+		status.overflow = !((old_a ^ *m) & bit(7)) && ((old_a ^ a) & bit(7));
 		break;
 	}
 	case Sbc:
@@ -357,33 +360,37 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> bool
 		auto old_a = a;
 		zn(a -= *m + !status.carry);
 		status.carry = old_a - *m - !status.carry >= 0x00;
-		status.overflow = (old_a ^ *m) & bit(7) && (old_a ^ a) & bit(7);
+		status.overflow = (old_a ^ *m) & bit(7) && ((old_a ^ a) & bit(7));
 		break;
 	}
 	case Jmp:
-		program_counter = *m;
-		return true;
+		program_counter = m.addr();
+		jumped = true;
+		break;
 	case Jsr:
 		push_addr(program_counter + 2);
-		program_counter = *m;
-		return true;
+		program_counter = m.addr();
+		jumped = true;
 	case Rts:
 		program_counter = pull_addr() + 1;
-		return true;
+		jumped = true;
+		break;
 	case Brk:
 		program_counter++;
 		push_addr(program_counter);
 		push(status.raw | bit(4) | bit(5));
 		status.break_ = 1;
 		program_counter = read_addr_from_mem(IrqBrkVecAddr);
-		return true;
+		jumped = true;
+		break;
 	case Rti:
 		status.raw = pull() & 0xEF | 0x20;
 		program_counter = pull_addr();
-		return true;
+		jumped = true;
+		break;
 	}
 
-	return false;
+	return std::make_pair(jumped, page_crossed);
 }
 
 auto Cpu::get_op(uint8_t opcode) -> Op
@@ -560,7 +567,7 @@ auto Cpu::get_op(uint8_t opcode) -> Op
 	}
 };
 
-auto Cpu::step() -> unsigned
+auto Cpu::step() -> void
 {
 	unsigned penalty_sum = 0;
 
@@ -569,9 +576,14 @@ auto Cpu::step() -> unsigned
 
 	auto old_pc = program_counter;
 
+	if (program_counter == 0xD922) {
+		// debug
+		int r = 5;
+	}
+
+	bool pages_differ = ((old_pc + get_arg_size(mode) + 1) & 0xFF00) != (get_addr(mode) & 0xFF00);
 	bool jumped = exec_instr(instr, ExtPtr{ *this, mode });
-	bool pages_differ = (old_pc & 0xFF00) != (get_addr(mode) & 0xFF00);
-	
+
 	switch (penalty) {
 	case Penalty::Branch:
 		if (!jumped) { break; }
@@ -588,7 +600,7 @@ auto Cpu::step() -> unsigned
 		program_counter += get_arg_size(mode) + 1;
 	}
 
-	return base_cycle + penalty_sum;
+	this->cycle = (this->cycle + (base_cycle + penalty_sum) * 3) % CpuCycleWraparound;
 }
 
 auto Cpu::reset() -> void 
@@ -611,8 +623,8 @@ auto Cpu::load_cart(const Cartridge& cart) -> void
 		throw "too many ROM banks!\n";
 	}
 
-	for (int i = start; i < cart.prg_rom.size(); i++) {
-		memory[i] = cart.prg_rom[i];
+	for (int i = 0; i < cart.prg_rom.size(); i++) {
+		memory[start + i] = cart.prg_rom[i];
 	}
 }
 
