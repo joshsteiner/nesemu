@@ -1,10 +1,79 @@
 #include "cpu.h"
-#include "nesemu.h"
- 
+
+CpuState::CpuState()
+	: a(0)
+	, x(0)
+	, y(0)
+	, stack_ptr(0)
+	, program_counter(0)
+{
+	status.raw = 0;
+}
+
+CpuSnapshot::CpuSnapshot()
+	: curr_instr({})
+	, cycle(0)
+{}
+
+CpuSnapshot::CpuSnapshot(uint16_t pc, std::vector<uint8_t> instr, uint8_t a,
+                         uint8_t x, uint8_t y, uint8_t p, uint8_t sp, unsigned cyc) 
+	: curr_instr(instr)
+	, cycle(cyc)
+{
+	this->a = a;
+	this->x = x;
+	this->y = y;
+	stack_ptr = sp;
+	program_counter = pc;
+	status.raw = p;
+}
+
+auto CpuSnapshot::operator==(const CpuSnapshot& other) -> bool
+{
+	return this->program_counter == other.program_counter
+		&& this->curr_instr == other.curr_instr
+		&& this->a == other.a
+		&& this->x == other.x
+		&& this->y == other.y
+		&& this->status.raw == other.status.raw
+		&& this->stack_ptr == other.stack_ptr
+		&& this->cycle == other.cycle;
+}
+
+auto CpuSnapshot::operator!=(const CpuSnapshot& other) -> bool
+{
+	return !(*this == other);
+}
+
+auto CpuSnapshot::to_str() -> std::string
+{
+	std::ostringstream strm;
+	strm
+		<< std::hex
+		<< "CpuSnapshot{"
+		<< "PC=" << program_counter << ';'
+		<< "instr=[";
+
+	for (auto instr : curr_instr) {
+		strm << (int)instr << ';';
+	}
+
+	strm 
+		<< ']'
+		<< "A=" << (int)a << ';'
+		<< "X=" << (int)x << ';'
+		<< "Y=" << (int)y << ';'
+		<< "status=" << (int)status.raw << ';'
+		<< "stack_ptr=" << (int)stack_ptr << ';'
+		<< "cycle=" << std::dec << cycle
+		<< "}";
+
+	return strm.str();
+}
+
 Cpu::Memory::Memory(Cpu& cpu)
 	: cpu(cpu) 
-{
-}
+{}
 
 auto Cpu::Memory::operator[](ExtendedAddr addr) -> uint8_t&
 {
@@ -21,8 +90,7 @@ auto Cpu::Memory::operator[](ExtendedAddr addr) -> uint8_t&
 Cpu::ExtPtr::ExtPtr(Cpu& cpu, Mode mode)
 	: cpu(cpu)
 	, mode(mode)
-{
-}
+{}
 
 auto Cpu::ExtPtr::operator*() -> uint8_t&
 {
@@ -32,6 +100,13 @@ auto Cpu::ExtPtr::operator*() -> uint8_t&
 auto Cpu::ExtPtr::addr() -> ExtendedAddr
 {
 	return cpu.get_addr(mode);
+}
+
+Cpu::Cpu()
+	: memory(*this)
+{
+	program_counter = 0;
+	stack_ptr = 0xFF;
 }
 
 auto Cpu::push(uint8_t value) -> void
@@ -64,7 +139,7 @@ auto Cpu::read_addr_from_mem(uint16_t addr) -> uint16_t
 	uint16_t page = 0xFF00 & addr;
 	return as_addr(
 		memory[((addr + 1) & 0x00FF) | page],
-		memory[addr & 0x00FF]
+		memory[addr]
 	);
 }
 
@@ -89,40 +164,63 @@ auto Cpu::zn(uint8_t val) -> void
 
 auto Cpu::get_addr(Mode mode) -> ExtendedAddr
 {
+	ExtendedAddr addr;
+	page_crossed = false;
+
 	switch (mode) {
 	case Implied:
-		return 0;
+		addr = 0;
+		break;
 	case Accumulator:
-		return ARegisterExtAddr;
+		addr = ARegisterExtAddr;
+		break;
 	case Immediate:
-		return program_counter + 1;
+		addr = program_counter + 1;
+		break;
 	case Relative:
-		return program_counter + (int8_t)peek_arg() + 2;
+		addr = program_counter + (int8_t)peek_arg() + 2;
+		page_crossed = pages_differ(program_counter + 2, addr); 
+		break;
 	case ZeroPage:
-		return peek_arg();
+		addr = peek_arg();
+		break;
 	case ZeroPageX:
-		return (peek_arg() + x) % PageSize;
+		addr = (peek_arg() + x) % PageSize;
+		break;
 	case ZeroPageY:
-		return (peek_arg() + y) % PageSize;
+		addr = (peek_arg() + y) % PageSize;
+		break;
 	case Absolute:
-		return peek_addr_arg();
+		addr = peek_addr_arg();
+		break;
 	case AbsoluteX:
-		return (peek_addr_arg() + x) % MemorySize;
+		addr = (peek_addr_arg() + x) % MemorySize;
+		page_crossed = pages_differ(peek_addr_arg(), addr);
+		break;
 	case AbsoluteY:
-		return (peek_addr_arg() + y) % MemorySize;
+		addr = (peek_addr_arg() + y) % MemorySize;
+		page_crossed = pages_differ(peek_addr_arg(), addr);
+		break;
 	case Indirect:
-		return read_addr_from_mem(peek_addr_arg());
+		addr = read_addr_from_mem(peek_addr_arg());
+		break;
 	case IndirectX:
-		return as_addr(
+		addr = as_addr(
 			memory[(peek_arg() + x + 1) % PageSize],
 			memory[(peek_arg() + x) % PageSize]
 		);
+		page_crossed = pages_differ(addr - x, addr);
+		break;
 	case IndirectY:
-		return (as_addr(
+		addr = (as_addr(
 			memory[(peek_arg() + 1) % PageSize],
 			memory[peek_arg()]
 		) + y) % MemorySize;
+		page_crossed = pages_differ(addr - y, addr);
+		break;
 	}
+
+	return addr;
 }
 
 auto Cpu::get_arg_size(Mode mode) -> unsigned
@@ -147,10 +245,9 @@ auto Cpu::get_arg_size(Mode mode) -> unsigned
 	}
 }
 
-auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> std::pair<bool, bool>
+auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> void
 {
-	bool jumped = false;
-	bool page_crossed = false;
+	jumped = false;
 
 	switch (instr) {
 	case Nop:
@@ -371,6 +468,7 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> std::pair<bool, bool>
 		push_addr(program_counter + 2);
 		program_counter = m.addr();
 		jumped = true;
+		break;
 	case Rts:
 		program_counter = pull_addr() + 1;
 		jumped = true;
@@ -389,8 +487,6 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> std::pair<bool, bool>
 		jumped = true;
 		break;
 	}
-
-	return std::make_pair(jumped, page_crossed);
 }
 
 auto Cpu::get_op(uint8_t opcode) -> Op
@@ -576,20 +672,14 @@ auto Cpu::step() -> void
 
 	auto old_pc = program_counter;
 
-	if (program_counter == 0xD922) {
-		// debug
-		int r = 5;
-	}
-
-	bool pages_differ = ((old_pc + get_arg_size(mode) + 1) & 0xFF00) != (get_addr(mode) & 0xFF00);
-	bool jumped = exec_instr(instr, ExtPtr{ *this, mode });
+	exec_instr(instr, ExtPtr{ *this, mode });
 
 	switch (penalty) {
 	case Penalty::Branch:
 		if (!jumped) { break; }
 		penalty_sum++;
 	case Penalty::PageCross:
-		if (pages_differ) {
+		if (page_crossed) {
 			penalty_sum++;
 		}
 	case Penalty::None:

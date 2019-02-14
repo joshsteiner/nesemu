@@ -1,5 +1,5 @@
+#include "common.h"
 #include "cart.h"
-#include "nesemu.h"
 
 const size_t HeaderSize = 16;
 const size_t TrainerSize = 0x200;

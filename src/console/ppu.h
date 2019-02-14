@@ -3,8 +3,9 @@
 #include <cstdint>
 #include <array>
 
-#include "nesemu.h"
+#include "common.h"
 #include "cpu.h"
+#include "../graphics.h"
 
 const size_t ObjAttrMapSize = 0x100;
 const size_t NametableDataSize = 0x800;
@@ -38,9 +39,9 @@ using Mask = FlagByte({
 	unsigned emph_blue            : 1;
 });
 
-static_assert(sizeof(Status) == 1);
-static_assert(sizeof(Control) == 1);
-static_assert(sizeof(Mask) == 1);
+// static_assert(sizeof(Status) == 1);
+// static_assert(sizeof(Control) == 1);
+// static_assert(sizeof(Mask) == 1);
 
 struct SpriteAttrObj
 {
@@ -56,7 +57,7 @@ struct SpriteAttrObj
 	uint8_t x;
 };
 
-static_assert(sizeof(SpriteAttrObj) == 4);
+// static_assert(sizeof(SpriteAttrObj) == 4);
 
 enum PpuRegAddr
 {
@@ -74,7 +75,8 @@ enum PpuRegAddr
 class Ppu
 {
 private:
-	Cpu& cpu;
+	Cpu* cpu;
+	PixelBuffer* pixel_buffer;
 
 	std::array<uint8_t, NametableDataSize> nametable_data;
 	std::array<uint8_t, PaletteDataSize> palette_data;
@@ -88,7 +90,9 @@ private:
 
 	unsigned cycle;    // 0-340
 	unsigned scanline; // 0-261, 0-239=visible, 240=post, 241-260=vblank, 261=pre
-	unsigned frame; // frame counter
+	unsigned frame;    // frame counter
+
+	uint8_t buffered;
 
 	struct 
 	{
@@ -100,7 +104,18 @@ private:
 	};
 
 public:
+	auto connect(Cpu* cpu) -> void
+	{
+		this->cpu = cpu;
+	}
+
+	auto connect(PixelBuffer* pixel_buffer) -> void
+	{
+		this->pixel_buffer = pixel_buffer;
+	}
+
 	auto reset() -> void;
+	auto step() -> void;
 
 	auto read_register(uint16_t addr) -> uint8_t;
 	auto write_register(uint16_t addr, uint8_t value) -> void;

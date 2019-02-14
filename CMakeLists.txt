@@ -6,26 +6,33 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include_directories(src)
+include_directories(windows)
 include_directories(test)
 
 link_directories("C:\\boost\\lib64-msvc-14.1")
+link_directories("C:\\SDL2\\lib\\x64")
 
 add_executable(
 	nesemu
-	src/cart.cc
-	src/cpu.cc
-	# src/ppu.cc 
-	src/main.cc
+	windows/main.cpp
+	windows/gfx_sdl.cpp
+	src/console/cart.cpp
+	src/console/cpu.cpp
+	src/console/ppu.cpp
 	)
 
 add_executable(
 	nestest
-	test/Test.cc
-	src/cpu.cc
-	src/cart.cc
+	test/nestest.cpp
+	src/console/cpu.cpp
+	src/console/cart.cpp
 	)
 
 target_include_directories(nestest PRIVATE "C:\\boost")
+target_include_directories(nestest PRIVATE "C:\\SDL2\\include")
+
+target_include_directories(nesemu PRIVATE "C:\\SDL2\\include")
+target_link_libraries(nesemu "C:\\SDL2\\lib\\x64\\SDL2.lib")
 
 enable_testing()
 add_test(NAME run_nestest COMMAND nestest)

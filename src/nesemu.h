@@ -1,15 +1,24 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
+#include <memory>
 
-#define FlagByte(Fields) \
-union { uint8_t raw; struct Fields; }
+#include "graphics.h"
+#include "console/cpu.h"
+#include "console/ppu.h"
 
-constexpr auto bit(int n) -> uint8_t
+class Console
 {
-	return 1 << n;
-}
+private:
+	Cpu cpu;
+	Ppu ppu;
+	std::unique_ptr<PixelBuffer> pixels;
+
+public:
+	Console(std::unique_ptr<PixelBuffer> pixels)
+	{
+		this->pixels = std::move(pixels);
+		cpu.connect(&ppu);
+		ppu.connect(&cpu);
+		ppu.connect(this->pixels.get());
+	}
+};

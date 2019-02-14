@@ -2,10 +2,18 @@
 
 auto Ppu::reset() -> void
 {
-	// TODO: cycle, scanline, frame
+	// TODO: use constants
+	cycle = 340;
+	scanline = 240;
+	frame = 0;
 	write_register(PpuCtrlRegAddr, 0);
 	write_register(PpuMaskRegAddr, 0);
 	write_register(OamAddrRegAddr, 0);
+}
+
+auto Ppu::step() -> void
+{
+
 }
 
 auto Ppu::read_register(uint16_t addr) -> uint8_t
@@ -27,32 +35,22 @@ auto Ppu::read_register(uint16_t addr) -> uint8_t
 	case OamDataRegAddr:
 		return obj_attr_map[obj_attr_map_addr];
 	case PpuDataRegAddr:
+	{
 		// TODO: ppudata
-		return 0;
+		uint8_t value = 0; // TODO ppu::read(v)
+		if (v % 0x4000 < 0x3F00) {
+			std::swap(value, buffered);
+		}
+		else {
+			buffered = 0; // ppu::read(v - 0x1000)
+		}
+
+		v += ctrl.vram_incr ? 32 : 1;
+
+		return value;
+	}
 	}
 }
-
-/*
-func (ppu *PPU) readData() byte {
-	value := ppu.Read(ppu.v)
-	// emulate buffered reads
-	if ppu.v%0x4000 < 0x3F00 {
-		buffered := ppu.bufferedData
-		ppu.bufferedData = value
-		value = buffered
-	} else {
-		ppu.bufferedData = ppu.Read(ppu.v - 0x1000)
-	}
-	// increment address
-	if ppu.flagIncrement == 0 {
-		ppu.v += 1
-	} else {
-		ppu.v += 32
-	}
-	return value
-}
-
-*/
 
 auto Ppu::write_register(uint16_t addr, uint8_t value) -> void 
 {
@@ -97,14 +95,16 @@ auto Ppu::write_register(uint16_t addr, uint8_t value) -> void
 		break;
 	case PpuDataRegAddr:
 		// TODO: ppudata
+		// ppu::write(v, value)
+		v += ctrl.vram_incr ? 32 : 1;
 		break;
 	case OamDmaRegAddr:
 	{
 		uint16_t addr = value << 8;
-		for (int i = 0; i < OamMapSize; i++) {
-			obj_attr_map[obj_attr_map_addr++] = cpu.memory[addr++];
+		for (int i = 0; i < ObjAttrMapSize; i++) {
+			obj_attr_map[obj_attr_map_addr++] = cpu->memory[addr++];
 		}
-		// TODO: stall cpu
+		cpu->stall(cpu->cycle % 2 ? 514 : 513);
 		break;
 	}
 	}
