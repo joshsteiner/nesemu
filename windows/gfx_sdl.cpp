@@ -6,6 +6,7 @@ PixelBufferSdl::PixelBufferSdl(GraphicsSdl& graphics)
 {
 	SDL_Surface& surface = *graphics.surface;
 	pixels = static_cast<Color*>(surface.pixels);
+	window = graphics.window;
 	h = surface.h;
 	w = surface.h;
 	pitch = surface.pitch;
@@ -18,7 +19,8 @@ auto PixelBufferSdl::get(unsigned r, unsigned c) -> Color
 
 auto PixelBufferSdl::set(unsigned r, unsigned c, Color value) -> void
 {
-	pixels[c * pitch + r] = value;
+	printf("set(r=%u,c=%u,val=%X)\n", r,c,value);
+	pixels[r * h + c] = value;
 }
 
 auto PixelBufferSdl::operator<<(Color value) -> PixelBuffer&
@@ -28,6 +30,11 @@ auto PixelBufferSdl::operator<<(Color value) -> PixelBuffer&
 		cursor += pitch - w;
 	}
 	return *this;
+}
+
+auto PixelBufferSdl::update() -> void
+{
+	SDL_UpdateWindowSurface(window);
 }
 
 auto PixelBufferSdl::reset_cursor() -> void

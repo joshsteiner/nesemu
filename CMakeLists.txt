@@ -16,7 +16,7 @@ add_executable(
 	nesemu
 	windows/main.cpp
 	windows/gfx_sdl.cpp
-	src/console/cart.cpp
+	src/console/memory.cpp
 	src/console/cpu.cpp
 	src/console/ppu.cpp
 	)
@@ -25,7 +25,8 @@ add_executable(
 	nestest
 	test/nestest.cpp
 	src/console/cpu.cpp
-	src/console/cart.cpp
+	src/console/ppu.cpp
+	src/console/memory.cpp
 	)
 
 target_include_directories(nestest PRIVATE "C:\\boost")

@@ -24,6 +24,7 @@ class PixelBufferSdl : public PixelBuffer
 private:
 	unsigned cursor;
 	Color* pixels;
+	SDL_Window* window;
 	unsigned h, w, pitch;
 
 public:
@@ -33,6 +34,7 @@ public:
 	auto get(unsigned r, unsigned c) -> Color override;
 	auto set(unsigned r, unsigned c, Color value) -> void override;
 	auto operator<<(Color value) -> PixelBuffer& override;
+	auto update() -> void override;
 	auto reset_cursor() -> void;
 };
 

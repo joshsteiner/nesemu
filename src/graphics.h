@@ -18,4 +18,5 @@ public:
 	virtual auto get(unsigned r, unsigned c) -> Color = 0;
 	virtual auto set(unsigned r, unsigned c, Color color) -> void = 0;
 	virtual auto operator<<(Color pixel) -> PixelBuffer& = 0;
+	virtual auto update() -> void = 0;
 };

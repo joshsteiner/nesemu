@@ -6,98 +6,76 @@
 #include <tuple>
 
 #include "../src/console/cpu.h"
+#include "../src/console/memory.h"
 #include "../src/console/cart.h"
+#include "../src/nesemu.h"
 
 auto parse_next_instr(std::ifstream& file) -> CpuSnapshot
 {
-	CpuSnapshot snapshot;
-	file >> std::hex >> (int&)snapshot.program_counter;
-
+	unsigned pc;
 	std::vector<uint8_t> instr;
+	unsigned a, x, y, p, sp;
+	unsigned cyc;
+
+	file >> std::hex >> pc;
+
 	for (;;) {
 		std::string s;
 		file >> s;
 		if (s.length() != 2) { break; }
 		instr.push_back(std::stoi(s, nullptr, 16));
 	}
-	snapshot.curr_instr = std::move(instr);
 
-	int i;
+	file.ignore(100, ':'); file >> a;
+	file.ignore(100, ':'); file >> x;
+	file.ignore(100, ':'); file >> y;
+	file.ignore(100, ':'); file >> p;
+	file.ignore(100, ':'); file >> sp;
+	file.ignore(100, ':'); file >> std::dec >> cyc;
+	file.ignore(100, '\n');
 
-	file.ignore(100, ':');
-	file >> i;
-	snapshot.a = i;
+	return CpuSnapshot{ pc, instr, a, x, y, p, sp, cyc };
+}
 
-	file.ignore(100, ':');
-	file >> i;
-	snapshot.x = i;
+auto run_testrom(std::string rom_filename, std::string log_filename) -> void
+{
+	Console console;
+	console.load(rom_filename);
 
-	file.ignore(100, ':');
-	file >> i;
-	snapshot.y = i;
-	
-	file.ignore(100, ':');
-	file >> i;
-	snapshot.status.raw = i;
-	
-	file.ignore(100, ':');
-	file >> i; 
-	snapshot.stack_ptr = i;
-	
-	file.ignore(100, ':');
-	file >> std::dec >> snapshot.cycle;
+	std::ifstream log_file{ log_filename };
+	if (!log_file.is_open()) { throw "log file failure"; }
 
-	return snapshot;
+	/*cpu.program_counter = 0xC000;
+	cpu.status.raw = 0x24;
+	cpu.stack_ptr = 0xFD;
+	cpu.cycle = 0;*/
+
+	console.cpu.a = 0xA0;
+	console.cpu.status.raw = 0x85;
+	console.cpu.stack_ptr = 0xFD;
+	console.cpu.cycle = 30;
+	console.ppu.cycle = 10;
+
+	for (;;) {
+		auto expected = parse_next_instr(log_file);
+		auto got = console.cpu.take_snapshot();
+		if (expected != got) {
+			std::ostringstream fmt_err;
+			fmt_err
+				<< "expected: " << str(expected) << ';'
+				<< "got: " << str(got);
+			BOOST_FAIL(fmt_err.str());
+		}
+		console.step();
+	}
 }
 
 BOOST_AUTO_TEST_CASE(nestest)
 {
-	Cpu cpu;
-	unsigned step_count = 0;
-	
-	std::ifstream nestest_file{ "nestest.nes", std::ios::binary };
-	auto cart = Cartridge::from_ines(nestest_file);
-	nestest_file.close();
-	cpu.load_cart(cart);
+	//run_testrom("test/nestest.nes", "test/nestest.log");
+}
 
-	std::ifstream log_file{ "nestest.log" };
-	if (!log_file.is_open()) {
-		throw "log file fail";
-	}
-
-	cpu.program_counter = 0xC000;
-	cpu.status.raw = 0x24;
-	cpu.stack_ptr = 0xFD;
-	cpu.cycle = 0;
-
-	auto return_addr = cpu.program_counter + 3;
-	
-	try {
-		for (;;) {
-			auto snap = parse_next_instr(log_file);
-			if (snap.program_counter == 0xC6BD) {
-				// test succeded
-				break;
-			}
-			if (snap != cpu.take_snapshot()) {
-				throw std::make_pair(snap, cpu.take_snapshot());
-			}
-			cpu.step();
-			++step_count;
-		}
-	} catch (const char *msg) {
-		std::ostringstream strm;
-		strm 
-			<< msg
-			<< " PC=$" << std::hex << cpu.program_counter
-			<< " step number:" << std::dec << step_count;
-		BOOST_TEST_FAIL(strm.str());
-	} catch (std::pair<CpuSnapshot, CpuSnapshot> diff) {
-		auto [expected, got] = diff;
-		std::ostringstream strm;
-		strm
-			<< "expected: " << expected.to_str() << '\n'
-			<< "got: " << got.to_str();
-		BOOST_TEST_FAIL(strm.str());
-	}
+BOOST_AUTO_TEST_CASE(color_test)
+{
+	run_testrom("test/color_test.nes", "test/color_test.log");
 }
