@@ -11,7 +11,6 @@
 #include "ppu.h"
 
 class Memory;
-class ExtPtr;
 using ExtendedAddr = int;
 
 // pc, instr, a, x, y, p, sp, cyc
@@ -100,7 +99,7 @@ private: // members
 	bool page_crossed;
 	Interrupt interrupt;
 
-	Memory* memory;
+	// Memory* memory;
 
 public: // ctors,dtors
 	Cpu();
@@ -120,7 +119,7 @@ private: // methods
 
 	auto get_addr(Mode mode) -> ExtendedAddr;
 	auto get_arg_size(Mode mode) -> unsigned;
-	auto exec_instr(Instruction instr, ExtPtr ptr) -> void;
+	auto exec_instr(Instruction instr, ExtendedAddr addr) -> void;
 	auto get_op(uint8_t opcode) -> Op;
 
 	template <Interrupt Int>
@@ -141,7 +140,7 @@ private: // methods
 	}
 
 public: // methods
-	inline auto connect(Memory* memory) -> void { this->memory = memory; }
+	// inline auto connect(Memory* memory) -> void { this->memory = memory; }
 
 	auto step() -> unsigned;
 	auto reset() -> void;
@@ -158,3 +157,6 @@ public: // methods
 
 	auto take_snapshot() -> CpuSnapshot;
 };
+
+extern Cpu cpu;
+extern Memory memory;

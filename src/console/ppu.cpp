@@ -2,9 +2,6 @@
 
 
 Ppu::Ppu() { Reset(); }
-auto Ppu::connect(Cpu* cpu) -> void { this->cpu = cpu; }
-auto Ppu::connect(Memory* memory) -> void { this->memory = memory; }
-auto Ppu::connect(PixelBuffer* screen) -> void { this->screen = screen; }
 
 auto Ppu::Reset() -> void
 {
@@ -140,14 +137,14 @@ auto Ppu::writeAddress(uint8_t value) -> void
 // $2007: PPUDATA (read)
 auto Ppu::readData() -> uint8_t 
 {
-	auto value = memory->read(v);
+	auto value = memory.read(v);
 	// emulate buffered reads
 	if (v % 0x4000 < 0x3F00) {
 		auto buffered = bufferedData;
 		bufferedData = value;
 		value = buffered;
 	} else {
-		bufferedData = memory->read(v - 0x1000);
+		bufferedData = memory.read(v - 0x1000);
 	}
 	// increment address
 	v += (flagIncrement == 0) ? 1 : 32;
@@ -157,7 +154,7 @@ auto Ppu::readData() -> uint8_t
 // $2007: PPUDATA (write)
 auto Ppu::writeData(uint8_t value) -> void
 {
-	memory->write(v, value);
+	memory.write(v, value);
 	v += (flagIncrement == 0) ? 1 : 32;
 }
 
@@ -166,11 +163,11 @@ auto Ppu::writeDMA(uint8_t value) -> void
 {
 	auto address = value << 8;
 	for (auto i = 0; i < 256; i++) {
-		oamData.at(oamAddress) = memory->read(address);
+		oamData.at(oamAddress) = memory.read(address);
 		oamAddress++;
 		address++;
 	}
-	cpu->stall(cpu->cycle % 2 == 1 ? 514 : 513);
+	cpu.stall(cpu.cycle % 2 == 1 ? 514 : 513);
 }
 
 // NTSC Timing Helper Functions
@@ -220,7 +217,7 @@ auto Ppu::nmiChange() -> void
 
 auto Ppu::setVerticalBlank() -> void
 {
-	screen->update();
+	screen.update();
 	nmiOccurred = true;
 	nmiChange();
 }
@@ -234,14 +231,14 @@ auto Ppu::clearVerticalBlank() -> void
 auto Ppu::fetchNameTableByte() -> void
 {
 	auto address = 0x2000 | (v & 0x0FFF);
-	nameTableByte = memory->read(address);
+	nameTableByte = memory.read(address);
 }
 
 auto Ppu::fetchAttributeTableByte() -> void 
 {
 	auto address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
 	auto shift = ((v >> 4) & 4) | (v & 2);
-	attributeTableByte = ((memory->read(address) >> shift) & 3) << 2;
+	attributeTableByte = ((memory.read(address) >> shift) & 3) << 2;
 }
 
 auto Ppu::fetchLowTileByte() -> void
@@ -250,7 +247,7 @@ auto Ppu::fetchLowTileByte() -> void
 	auto table = flagBackgroundTable;
 	auto tile = nameTableByte;
 	auto address = 0x1000 * table + tile * 16 + fineY;
-	lowTileByte = memory->read(address);
+	lowTileByte = memory.read(address);
 }
 
 auto Ppu::fetchHighTileByte() -> void
@@ -259,7 +256,7 @@ auto Ppu::fetchHighTileByte() -> void
 	auto table = flagBackgroundTable;
 	auto tile = nameTableByte;
 	auto address = 0x1000 * table + tile * 16 + fineY;
-	highTileByte = memory->read(address + 8);
+	highTileByte = memory.read(address + 8);
 }
 
 auto Ppu::storeTileData() -> void
@@ -343,7 +340,7 @@ auto Ppu::renderPixel()
 		}
 	}
 	auto c = palette[palette_at(color) % 64];
-	screen->set(y, x, c);
+	screen.set(y, x, c);
 }
 
 auto Ppu::fetchSpritePattern(int i, int row) -> uint32_t 
@@ -370,8 +367,8 @@ auto Ppu::fetchSpritePattern(int i, int row) -> uint32_t
 		address = 0x1000 * table + tile * 16 + row;
 	}
 	auto a = (attributes & 3) << 2;
-	auto lowTileByte = memory->read(address);
-	auto highTileByte = memory->read(address + 8);
+	auto lowTileByte = memory.read(address);
+	auto highTileByte = memory.read(address + 8);
 	uint32_t data = 0;
 	for (auto i = 0; i < 8; i++) {
 		uint8_t p1, p2;
@@ -425,7 +422,7 @@ auto Ppu::tick() -> void
 	if (nmiDelay > 0) {
 		nmiDelay--;
 		if (nmiDelay == 0 && nmiOutput && nmiOccurred) {
-			cpu->trigger<Cpu::Interrupt::Nmi>();
+			cpu.trigger<Cpu::Interrupt::Nmi>();
 		}
 	}
 

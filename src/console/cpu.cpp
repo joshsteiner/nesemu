@@ -34,11 +34,11 @@ auto str(const CpuSnapshot& snap) -> std::string
 		<< "instr=[";
 
 	for (auto instr : instr) {
-		strm << (int)instr << ';';
+		strm << (int)instr << ',';
 	}
 
 	strm 
-		<< ']'
+		<< "];"
 		<< "A=" << (int)a << ';'
 		<< "X=" << (int)x << ';'
 		<< "Y=" << (int)y << ';'
@@ -56,14 +56,13 @@ Cpu::Cpu()
 	status.raw = 0;
 	program_counter = 0;
 	stack_ptr = 0xFF;
-	memory = nullptr;
 	cycle = 0;
 	cycle_stall = 0;
 }
 
 auto Cpu::push(uint8_t value) -> void
 {
-	memory->write(StackPage + stack_ptr, value);
+	memory.write(StackPage + stack_ptr, value);
 	stack_ptr--;
 }
 
@@ -76,7 +75,7 @@ auto Cpu::push_addr(uint16_t addr) -> void
 auto Cpu::pull() -> uint8_t
 {
 	stack_ptr++;
-	return memory->read(StackPage + stack_ptr);
+	return memory.read(StackPage + stack_ptr);
 }
 
 auto Cpu::pull_addr() -> uint16_t
@@ -90,21 +89,21 @@ auto Cpu::read_addr_from_mem(uint16_t addr) -> uint16_t
 {
 	uint16_t page = 0xFF00 & addr;
 	return as_addr(
-		memory->read(((addr + 1) & 0x00FF) | page),
-		memory->read(addr)
+		memory.read(((addr + 1) & 0x00FF) | page),
+		memory.read(addr)
 	);
 }
 
 auto Cpu::peek_arg() -> uint8_t
 {
-	return memory->read(program_counter + 1);
+	return memory.read(program_counter + 1);
 }
 
 auto Cpu::peek_addr_arg() -> uint16_t
 {
 	return as_addr(
-		memory->read(program_counter + 2),
-		memory->read(program_counter + 1)
+		memory.read(program_counter + 2),
+		memory.read(program_counter + 1)
 	);
 }
 
@@ -158,15 +157,15 @@ auto Cpu::get_addr(Mode mode) -> ExtendedAddr
 		break;
 	case IndirectX:
 		addr = as_addr(
-			memory->read((peek_arg() + x + 1) % PageSize),
-			memory->read((peek_arg() + x) % PageSize)
+			memory.read((peek_arg() + x + 1) % PageSize),
+			memory.read((peek_arg() + x) % PageSize)
 		);
 		page_crossed = pages_differ(addr - x, addr);
 		break;
 	case IndirectY:
 		addr = (as_addr(
-			memory->read((peek_arg() + 1) % PageSize),
-			memory->read(peek_arg())
+			memory.read((peek_arg() + 1) % PageSize),
+			memory.read(peek_arg())
 		) + y) % MemorySize;
 		page_crossed = pages_differ(addr - y, addr);
 		break;
@@ -197,7 +196,7 @@ auto Cpu::get_arg_size(Mode mode) -> unsigned
 	}
 }
 
-auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> void
+auto Cpu::exec_instr(Instruction instr, ExtendedAddr addr) -> void
 {
 	jumped = false;
 
@@ -205,8 +204,8 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> void
 	case Nop:
 		break;
 	case Inc:
-		m.write(m.read() + 1);
-		zn(m.read());
+		memory.write(addr, memory.read(addr) + 1);
+		zn(memory.read(addr));
 		break;
 	case Inx:
 		++x;
@@ -217,8 +216,8 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> void
 		zn(y);
 		break;
 	case Dec:
-		m.write(m.read() - 1);
-		zn(m.read());
+		memory.write(addr, memory.read(addr) - 1);
+		zn(memory.read(addr));
 		break;
 	case Dex:
 		--x;
@@ -281,148 +280,160 @@ auto Cpu::exec_instr(Instruction instr, ExtPtr m) -> void
 		break;
 	case Bcs:
 		if (status.carry) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bcc:
 		if (!status.carry) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Beq:
 		if (status.zero) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bne:
 		if (!status.zero) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bmi:
 		if (status.negative) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bpl:
 		if (!status.negative) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bvs:
 		if (status.overflow) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bvc:
 		if (!status.overflow) {
-			program_counter = m.address();
+			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Lda:
-		zn(a = m.read());
+		zn(a = memory.read(addr));
 		break;
 	case Ldx:
-		zn(x = m.read());
+		zn(x = memory.read(addr));
 		break;
 	case Ldy:
-		zn(y = m.read());
+		zn(y = memory.read(addr));
 		break;
 	case Sta:
-		m.write(a);
+		memory.write(addr, a);
 		break;
 	case Stx:
-		m.write(x);
+		memory.write(addr, x);
 		break;
 	case Sty:
-		m.write(y);
+		memory.write(addr, y);
 		break;
-	case Bit:
-		status.zero = (a & m.read()) == 0;
-		status.overflow = m.read() & bit(6) ? 1 : 0;
-		status.negative = m.read() & bit(7) ? 1 : 0;
+	case Bit: 
+	{
+		auto m = memory.read(addr);
+		status.zero = (a & m) == 0;
+		status.overflow = (m >> 6) & 1;
+		status.negative = (m >> 7) & 1;
 		break;
+	}
 	case Cmp:
-		status.carry = a >= m.read();
-		status.zero = a == m.read();
-		status.negative = (a - m.read()) & bit(7) ? 1 : 0;
+	{
+		auto m = memory.read(addr);
+		status.carry = a >= m;
+		status.zero = a == m;
+		status.negative = ((a - m) >> 7) & 1;
 		break;
+	}
 	case Cpx:
-		status.carry = x >= m.read();
-		status.zero = x == m.read();
-		status.negative = (x - m.read()) & bit(7) ? 1 : 0;
+	{
+		auto m = memory.read(addr);
+		status.carry = x >= m;
+		status.zero = x == m;
+		status.negative = ((x - m) >> 7) & 1;
 		break;
-	case Cpy:
-		status.carry = y >= m.read();
-		status.zero = y == m.read();
-		status.negative = (y - m.read()) & bit(7) ? 1 : 0;
+	}
+	case Cpy: 
+	{
+		auto m = memory.read(addr);
+		status.carry = y >= m;
+		status.zero = y == m;
+		status.negative = ((y - m) >> 7) & 1;
 		break;
+	}
 	case And:
-		zn(a &= m.read());
+		zn(a &= memory.read(addr));
 		break;
 	case Ora:
-		zn(a |= m.read());
+		zn(a |= memory.read(addr));
 		break;
 	case Eor:
-		zn(a ^= m.read());
+		zn(a ^= memory.read(addr));
 		break;
 	case Asl:
-		status.carry = m.read() & bit(7) ? 1 : 0;
-		m.write(m.read() << 1);
-		zn(m.read());
+		status.carry = memory.read(addr) & bit(7) ? 1 : 0;
+		memory.write(addr, memory.read(addr) << 1);
+		zn(memory.read(addr));
 		break;
 	case Lsr:
-		status.carry = m.read() & bit(0) ? 1 : 0;
-		m.write(m.read() >> 1);
-		zn(m.read());
+		status.carry = memory.read(addr) & bit(0) ? 1 : 0;
+		memory.write(addr, memory.read(addr) >> 1);
+		zn(memory.read(addr));
 		break;
 	case Rol:
 	{
 		auto old_carry = status.carry;
-		status.carry = m.read() & bit(7) ? 1 : 0;
-		m.write(m.read() << 1 | old_carry);
-		zn(m.read());
+		status.carry = memory.read(addr) & bit(7) ? 1 : 0;
+		memory.write(addr, memory.read(addr) << 1 | old_carry);
+		zn(memory.read(addr));
 		break;
 	}
 	case Ror:
 	{
 		auto old_carry = status.carry;
-		status.carry = m.read() & bit(0) ? 1 : 0;
-		m.write(m.read() >> 1 | old_carry << 7);
-		zn(m.read());
+		status.carry = memory.read(addr) & bit(0) ? 1 : 0;
+		memory.write(addr, memory.read(addr) >> 1 | old_carry << 7);
+		zn(memory.read(addr));
 		break;
 	}
 	case Adc:
 	{
 		auto old_a = a;
-		zn(a += m.read() + status.carry);
-		status.carry = old_a + m.read() + status.carry > 0xFF;
-		status.overflow = !((old_a ^ m.read()) & bit(7)) && ((old_a ^ a) & bit(7));
+		zn(a += memory.read(addr) + status.carry);
+		status.carry = old_a + memory.read(addr) + status.carry > 0xFF;
+		status.overflow = !((old_a ^ memory.read(addr)) & bit(7)) && ((old_a ^ a) & bit(7));
 		break;
 	}
 	case Sbc:
 	{
 		auto old_a = a;
-		zn(a -= m.read() + !status.carry);
-		status.carry = old_a - m.read() - !status.carry >= 0x00;
-		status.overflow = (old_a ^ m.read()) & bit(7) && ((old_a ^ a) & bit(7));
+		zn(a -= memory.read(addr) + !status.carry);
+		status.carry = old_a - memory.read(addr) - !status.carry >= 0x00;
+		status.overflow = (old_a ^ memory.read(addr)) & bit(7) && ((old_a ^ a) & bit(7));
 		break;
 	}
 	case Jmp:
-		program_counter = m.address();
+		program_counter = addr;
 		jumped = true;
 		break;
 	case Jsr:
 		push_addr(program_counter + 2);
-		program_counter = m.address();
+		program_counter = addr;
 		jumped = true;
 		break;
 	case Rts:
@@ -606,7 +617,7 @@ auto Cpu::get_op(uint8_t opcode) -> Op
 	case 0xED: return { Sbc, Absolute, { 4, Penalty::None } };
 	case 0xEE: return { Inc, Absolute, { 6, Penalty::None } };
 
-	case 0xf0: return { Beq, Relative, { 2, Penalty::Branch } };
+	case 0xF0: return { Beq, Relative, { 2, Penalty::Branch } };
 	case 0xF1: return { Sbc, IndirectY, { 5, Penalty::PageCross } };
 	case 0xF5: return { Sbc, ZeroPageX, { 4, Penalty::None } };
 	case 0xF6: return { Inc, ZeroPageX, { 6, Penalty::None } };
@@ -628,7 +639,7 @@ auto Cpu::step() -> unsigned
 {
 	if (cycle_stall) {
 		cycle_stall--;
-		this->cycle = (this->cycle + 1) % CpuCycleWraparound; // TODO: 1 or 3?
+		cycle = (cycle + 1) % CpuCycleWraparound; // TODO: 1 or 3?
 		return 1;
 	}
 
@@ -647,12 +658,12 @@ auto Cpu::step() -> unsigned
 
 	unsigned penalty_sum = 0;
 
-	auto [instr, mode, cycles] = get_op(memory->read(program_counter));
+	auto [instr, mode, cycles] = get_op(memory.read(program_counter));
 	auto [base_cycle, penalty] = cycles;
 
 	auto old_pc = program_counter;
 
-	exec_instr(instr, ExtPtr{ get_addr(mode), *memory });
+	exec_instr(instr, get_addr(mode));
 
 	switch (penalty) {
 	case Penalty::Branch:
@@ -670,9 +681,9 @@ auto Cpu::step() -> unsigned
 		program_counter += get_arg_size(mode) + 1;
 	}
 
-	this->cycle = (this->cycle + (base_cycle + penalty_sum) * 3) % CpuCycleWraparound;
+	cycle = (cycle + (base_cycle + penalty_sum) * 3) % CpuCycleWraparound;
 
-	auto cycle_diff = (int)this->cycle - (int)start_cycle;
+	auto cycle_diff = (int)cycle - (int)start_cycle;
 	if (cycle_diff < 0) {
 		cycle_diff += CpuCycleWraparound;
 	}
@@ -687,11 +698,11 @@ auto Cpu::reset() -> void
 
 auto Cpu::take_snapshot() -> CpuSnapshot
 {
-	auto opcode = memory->read(program_counter);
+	auto opcode = memory.read(program_counter);
 	std::vector<uint8_t> instr{ opcode };
 	auto arg_size = get_arg_size(std::get<1>(get_op(opcode)));
 	for (unsigned i = 0; i < arg_size; i++) {
-		instr.push_back(memory->read(program_counter + 1 + i));
+		instr.push_back(memory.read(program_counter + 1 + i));
 	}
 	return CpuSnapshot{ program_counter, instr, a, x, y, status.raw, stack_ptr, cycle };
 }

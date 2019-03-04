@@ -9,6 +9,13 @@
 #include "../src/console/memory.h"
 #include "../src/console/cart.h"
 #include "../src/nesemu.h"
+#include "../src/screen.h"
+
+Cpu cpu;
+Ppu ppu;
+Memory memory;
+Screen screen;
+
 
 auto parse_next_instr(std::ifstream& file) -> CpuSnapshot
 {
@@ -50,15 +57,17 @@ auto run_testrom(std::string rom_filename, std::string log_filename) -> void
 	cpu.stack_ptr = 0xFD;
 	cpu.cycle = 0;*/
 
-	console.cpu.a = 0xA0;
-	console.cpu.status.raw = 0x85;
-	console.cpu.stack_ptr = 0xFD;
-	console.cpu.cycle = 30;
-	console.ppu.cycle = 10;
+	cpu.a = 0xA0;
+	cpu.status.raw = 0x85;
+	cpu.stack_ptr = 0xFD;
+	cpu.cycle = 30;
+	ppu.cycle = 10;
 
 	for (;;) {
 		auto expected = parse_next_instr(log_file);
-		auto got = console.cpu.take_snapshot();
+		auto got = cpu.take_snapshot();
+		std::cout << str(expected) << '&';
+		std::cout << str(got) << '\n';
 		if (expected != got) {
 			std::ostringstream fmt_err;
 			fmt_err

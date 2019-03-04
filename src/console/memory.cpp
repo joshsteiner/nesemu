@@ -8,7 +8,7 @@ auto Memory::at(ExtendedAddr addr) -> uint8_t&
 {
 	if (addr < 0) {
 		switch (addr) {
-		case ARegisterExtAddr: return cpu->a;
+		case ARegisterExtAddr: return cpu.a;
 		}
 	} else if (BETWEEN(addr, 0x0000, 0x2000)) {
 		return ram[addr % 0x800];
@@ -43,10 +43,10 @@ auto Memory::read(ExtendedAddr addr) -> uint8_t
 {
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
 		addr = (addr % 0x8) + 0x2000;
-		return ppu->readRegister(addr);
+		return ppu.readRegister(addr);
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
 		if (addr == 0x4014) {
-			return ppu->readRegister(addr);
+			return ppu.readRegister(addr);
 		}
 		return 0;
 	} else {
@@ -58,32 +58,12 @@ auto Memory::write(ExtendedAddr addr, uint8_t value) -> void
 {
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
 		addr = (addr % 0x8) + 0x2000;
-		ppu->writeRegister(addr, value);
+		ppu.writeRegister(addr, value);
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
 		if (addr == 0x4014) {
-			ppu->writeRegister(addr, value);
+			ppu.writeRegister(addr, value);
 		}
 	} else {
 		at(addr) = value;
 	}
-}
-
-ExtPtr::ExtPtr(ExtendedAddr addr, Memory& memory)
-	: addr(addr)
-	, memory(memory)
-{}
-
-auto ExtPtr::read() -> uint8_t 
-{
-	return memory.read(addr);
-}
-
-auto ExtPtr::write(uint8_t value) -> void
-{
-	memory.write(addr, value);
-}
-
-auto ExtPtr::address() -> ExtendedAddr
-{
-	return addr;
 }

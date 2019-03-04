@@ -24,29 +24,21 @@ class Memory
 {
 private:
 	std::array<uint8_t, InternalRam> ram;
-	Cpu* cpu;
-	Ppu* ppu;
+	// Cpu* cpu;
+	// Ppu* ppu;
 	Cartridge cart;
 
-public:
+private:
 	auto at(ExtendedAddr addr) -> uint8_t&;
+
+public:
 	auto read(ExtendedAddr addr) -> uint8_t;
 	auto write(ExtendedAddr addr, uint8_t value) -> void;
 
-	inline auto connect(Cpu* cpu) -> void { this->cpu = cpu; }
-	inline auto connect(Ppu* ppu) -> void { this->ppu = ppu; }
+	//inline auto connect(Cpu* cpu) -> void { this->cpu = cpu; }
+	//inline auto connect(Ppu* ppu) -> void { this->ppu = ppu; }
 	inline auto connect(Cartridge cart) -> void { this->cart = cart; }
 };
 
-class ExtPtr
-{
-private:
-	ExtendedAddr addr;
-	Memory& memory;
-
-public:
-	ExtPtr(ExtendedAddr addr, Memory& memory);
-	auto read() -> uint8_t;
-	auto write(uint8_t value) -> void;
-	auto address() -> ExtendedAddr;
-};
+extern Ppu ppu;
+extern Cpu cpu;

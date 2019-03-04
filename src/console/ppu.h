@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../graphics.h"
+#include "../screen.h"
 #include "memory.h"
 #include "cpu.h"
 
@@ -10,9 +10,9 @@ class Cpu;
 class Ppu
 {
 public:
-	Cpu* cpu = nullptr;
-	Memory* memory = nullptr;
-	PixelBuffer* screen = nullptr;
+	// Cpu* cpu = nullptr;
+	// Memory* memory = nullptr;
+	// PixelBuffer* screen = nullptr;
 
 	unsigned cycle = 0;
 	unsigned scan_line = 0; 
@@ -84,9 +84,9 @@ public:
 	uint8_t bufferedData = 0; // for buffered reads
 
 	Ppu();
-	auto connect(Cpu* cpu) -> void;
-	auto connect(Memory* memory) -> void;
-	auto connect(PixelBuffer* screen) -> void;
+	// auto connect(Cpu* cpu) -> void;
+	// auto connect(Memory* memory) -> void;
+	// auto connect(PixelBuffer* screen) -> void;
 
 	auto Reset() -> void; 
 	auto palette_at(uint16_t addr) -> uint8_t&;
@@ -125,3 +125,6 @@ public:
 	auto tick() -> void ; 
 	auto step() -> void;
 };
+
+extern Cpu cpu;
+extern Memory memory;
