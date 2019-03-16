@@ -6,7 +6,7 @@
 #include "common.h"
 #include "cpu.h"
 #include "memory.h"
-#include "../graphics.h"
+#include "graphics.h"
 
 class Cpu;
 class Memory;

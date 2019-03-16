@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 
 #include "cpu.h"
 
@@ -28,24 +29,31 @@ auto str(const CpuSnapshot& snap) -> std::string
 
 	std::ostringstream strm;
 	strm
+		<< std::uppercase
 		<< std::hex
-		<< "CpuSnapshot{"
-		<< "PC=" << pc << ';'
-		<< "instr=[";
+		<< std::setfill('0')
+		<< std::setw(4)
+		<< pc << "  ";
 
 	for (auto instr : instr) {
-		strm << (int)instr << ',';
+		strm << std::setw(2) << (int)instr << ' ';
 	}
 
+	strm << ' ';
+
+	for (auto i = 3 - instr.size(); i > 0; --i) {
+		strm << "   ";
+	}
+
+	// TODO: deassemble instruction
+
 	strm 
-		<< "];"
-		<< "A=" << (int)a << ';'
-		<< "X=" << (int)x << ';'
-		<< "Y=" << (int)y << ';'
-		<< "status=" << (int)p << ';'
-		<< "stack_ptr=" << (int)sp << ';'
-		<< "cycle=" << std::dec << cyc
-		<< "}";
+		<< "A:" << std::setw(2) << (int)a << ' '
+		<< "X:" << std::setw(2) << (int)x << ' '
+		<< "Y:" << std::setw(2) << (int)y << ' '
+		<< "P:" << std::setw(2) << (int)p << ' '
+		<< "SP:" << std::setw(2) << (int)sp << ' '
+		<< "CYC:" << std::setfill(' ') << std::setw(3) << std::dec << cyc;
 
 	return strm.str();
 }
@@ -694,6 +702,7 @@ auto Cpu::step() -> unsigned
 auto Cpu::reset() -> void 
 {
 	program_counter = read_addr_from_mem(ResetVecAddr);
+	std::clog << "pc=" << std::hex << program_counter << "\n";
 }
 
 auto Cpu::take_snapshot() -> CpuSnapshot

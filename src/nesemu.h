@@ -3,9 +3,9 @@
 #include <memory>
 
 #include "screen.h"
-#include "console/cpu.h"
-#include "console/ppu.h"
-#include "console/memory.h"
+#include "cpu.h"
+#include "ppu.h"
+#include "memory.h"
 
 class Console
 {

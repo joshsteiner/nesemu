@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "../src/nesemu.h"
+#include "nesemu.h"
 
 Cpu cpu;
 Ppu ppu;

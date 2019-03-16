@@ -11,7 +11,7 @@ auto Memory::at(ExtendedAddr addr) -> uint8_t&
 		case ARegisterExtAddr: return cpu.a;
 		}
 	} else if (BETWEEN(addr, 0x0000, 0x2000)) {
-		return ram[addr % 0x800];
+		return ram.at(addr % 0x800);
 	} else if (BETWEEN(addr, 0x2000, 0x4000)) {
 		throw "use either read or write";
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
@@ -56,14 +56,24 @@ auto Memory::read(ExtendedAddr addr) -> uint8_t
 
 auto Memory::write(ExtendedAddr addr, uint8_t value) -> void
 {
+	std::clog << "in  Memory::write(" << std::hex << addr << "," << (int)value << ")\n";
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
+		std::clog << "+ 1\n";
 		addr = (addr % 0x8) + 0x2000;
+		std::clog << "+ 2\n";
 		ppu.writeRegister(addr, value);
+		std::clog << "+ 3\n";
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
+		std::clog << "+ 4\n";
 		if (addr == 0x4014) {
+			std::clog << "+ 5\n";
 			ppu.writeRegister(addr, value);
+			std::clog << "+ 6\n";
 		}
 	} else {
+		std::clog << "+ 7\n";
 		at(addr) = value;
+		std::clog << "+ 8\n";
 	}
+	std::clog << "out Memory::write\n";
 }

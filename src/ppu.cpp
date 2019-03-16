@@ -34,6 +34,7 @@ auto Ppu::readRegister(uint16_t address) -> uint8_t
 auto Ppu::writeRegister(uint16_t address, uint8_t value) -> void
 {
 	reg = value;
+	std::clog << "- 1\n";
 	switch (address) {
 	case 0x2000: writeControl(value); break;
 	case 0x2001: writeMask(value); break;
@@ -44,6 +45,7 @@ auto Ppu::writeRegister(uint16_t address, uint8_t value) -> void
 	case 0x2007: writeData(value); break;
 	case 0x4014: writeDMA(value); break;
 	}
+	std::clog << "- 2\n";
 }
 
 // $2000: PPUCTRL
@@ -137,6 +139,7 @@ auto Ppu::writeAddress(uint8_t value) -> void
 // $2007: PPUDATA (read)
 auto Ppu::readData() -> uint8_t 
 {
+	// TODO: read from ppu, not memory
 	auto value = memory.read(v);
 	// emulate buffered reads
 	if (v % 0x4000 < 0x3F00) {
@@ -154,6 +157,8 @@ auto Ppu::readData() -> uint8_t
 // $2007: PPUDATA (write)
 auto Ppu::writeData(uint8_t value) -> void
 {
+	// TODO: read from ppu, not memory
+	std::clog << "Ppu::writeData : v=" << std::hex << v << "\n";
 	memory.write(v, value);
 	v += (flagIncrement == 0) ? 1 : 32;
 }
@@ -163,6 +168,7 @@ auto Ppu::writeDMA(uint8_t value) -> void
 {
 	auto address = value << 8;
 	for (auto i = 0; i < 256; i++) {
+		// TODO: wrap
 		oamData.at(oamAddress) = memory.read(address);
 		oamAddress++;
 		address++;

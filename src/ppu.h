@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../screen.h"
+#include "screen.h"
 #include "memory.h"
 #include "cpu.h"
 
