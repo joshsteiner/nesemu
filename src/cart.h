@@ -10,10 +10,10 @@
 class Cartridge 
 {
 private:
-	static const size_t HeaderSize     = 16;
-	static const size_t TrainerSize    = 0x200;
-	static const size_t PrgRomPageSize = 0x4000;
-	static const size_t ChrRomPageSize = 0x2000;
+	static const size_t HeaderSize   = 16;
+	static const size_t TrainerSize  = 0x200;
+	static const size_t RomPageSize  = 0x4000;
+	static const size_t VRomPageSize = 0x2000;
 
 	static constexpr const char* MagicConst = "NES\x1A";
 
@@ -22,8 +22,8 @@ public:
 	int  mapper;
 	int  mirroring;
 	
-	std::vector<uint8_t> prg_rom;
-	std::vector<uint8_t> chr_rom;
+	std::vector<uint8_t> rom;
+	std::vector<uint8_t> vrom;
 
 public:
 	static Cartridge from_ines(std::ifstream& file)
@@ -37,8 +37,8 @@ public:
 
 		Cartridge cart;
 
-		size_t prg_rom_size = file.get() * PrgRomPageSize;
-		size_t chr_rom_size = file.get() * ChrRomPageSize;
+		size_t rom_size  = file.get() * RomPageSize;
+		size_t vrom_size = file.get() * VRomPageSize;
 		uint8_t flag6 = file.get();
 		uint8_t flag7 = file.get();
 
@@ -56,18 +56,14 @@ public:
 			file.seekg(TrainerSize, std::ifstream::cur);
 
 		// read prg_rom
-		cart.prg_rom.reserve(prg_rom_size);
-		for (size_t i = 0; i < prg_rom_size; i++) {
-			auto c = file.get();
-			cart.prg_rom.push_back(c);
-		}
+		cart.rom.reserve(rom_size);
+		for (size_t i = 0; i < rom_size; i++)
+			cart.rom.push_back(file.get());
 
 		// read chr_rom
-		cart.chr_rom.reserve(chr_rom_size);
-		for (size_t i = 0; i < chr_rom_size; i++) {
-			auto c = file.get();
-			cart.chr_rom.push_back(c);
-		}
+		cart.vrom.reserve(vrom_size);
+		for (size_t i = 0; i < vrom_size; i++)
+			cart.vrom.push_back(file.get());
 
 		return cart;
 	}

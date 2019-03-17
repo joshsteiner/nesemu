@@ -1,5 +1,5 @@
 COMPILER=g++
-FLAGS=-std=c++17 -g -Wall -pedantic -I/usr/include/SDL2
+FLAGS=-std=c++11 -g -Wall -pedantic -I/usr/include/SDL2
 LINK_FLAGS=-lSDL2
 
 SOURCE_DIR=src

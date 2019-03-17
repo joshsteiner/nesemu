@@ -9,11 +9,7 @@ Screen screen;
 
 void run_loop(Console& console)
 {
-	uint32_t tick, prev_tick = SDL_GetTicks();
-
 	for (;;) {
-		tick = SDL_GetTicks();
-
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
@@ -47,7 +43,7 @@ int main(int argc, char **argv)
 
 		console.load(argv[1]);
 		run_loop(console);
-	} catch (std::exception e) {
+	} catch (std::exception& e) {
 		std::cerr << e.what() << '\n';
 		return EXIT_FAILURE;
 	} catch (std::string e) {

@@ -21,9 +21,9 @@ uint8_t& Memory::at(ExtendedAddr addr)
 		throw "CPU Test mode is disabled";
 	} else if (BETWEEN(addr, 0x4020, 0x10000)) {
 		try {
-			switch (cart.prg_rom.size() / 0x4000) {
-			case 1: return cart.prg_rom.at(addr - 0xC000);
-			case 2: return cart.prg_rom.at(addr - 0x8000);
+			switch (cart.rom.size() / 0x4000) {
+			case 1: return cart.rom.at(addr - 0xC000);
+			case 2: return cart.rom.at(addr - 0x8000);
 			}
 		} catch (std::exception& e) {
 			printf("in Memory::at(%x)\n", addr);
@@ -32,7 +32,7 @@ uint8_t& Memory::at(ExtendedAddr addr)
 		}
 
 		std::ostringstream ss;
-		ss << "invalid cart prg rom size: " << cart.prg_rom.size();
+		ss << "invalid cart prg rom size: " << cart.rom.size();
 		throw ss.str();
 	}
 
