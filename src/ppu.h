@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NESEMU_PPU_H
+#define NESEMU_PPU_H
 
 #include "screen.h"
 #include "memory.h"
@@ -10,17 +11,13 @@ class Cpu;
 class Ppu
 {
 public:
-	// Cpu* cpu = nullptr;
-	// Memory* memory = nullptr;
-	// PixelBuffer* screen = nullptr;
-
 	unsigned cycle = 0;
 	unsigned scan_line = 0; 
 	unsigned frame = 0;
 
-	std::array<uint8_t, 32> paletteData;
+	std::array<uint8_t, 32>   paletteData;
 	std::array<uint8_t, 2048> nametable_data;
-	std::array<uint8_t, 256> oamData;
+	std::array<uint8_t, 256>  oamData;
 
 	std::array<Color, 64> palette{
 		0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00,
@@ -35,7 +32,7 @@ public:
 
 	// PPU registers
 	uint16_t v = 0, t = 0;
-	uint8_t x = 0, w = 0, f = 0;
+	uint8_t  x = 0, w = 0, f = 0;
 
 	uint8_t reg = 0;
 
@@ -84,47 +81,46 @@ public:
 	uint8_t bufferedData = 0; // for buffered reads
 
 	Ppu();
-	// auto connect(Cpu* cpu) -> void;
-	// auto connect(Memory* memory) -> void;
-	// auto connect(PixelBuffer* screen) -> void;
 
-	auto Reset() -> void; 
-	auto palette_at(uint16_t addr) -> uint8_t&;
-	auto readRegister(uint16_t address) -> uint8_t;
+	void Reset(); 
+	uint8_t& palette_at(uint16_t addr);
+	uint8_t readRegister(uint16_t address);
 
-	auto writeRegister(uint16_t address, uint8_t value) -> void ;
-	auto writeControl(uint8_t value) -> void ;
-	auto writeMask(uint8_t value) -> void ;
-	auto readStatus() -> uint8_t ;
-	auto writeOAMAddress(uint8_t value) -> void ;
-	auto readOAMData() -> uint8_t ;
-	auto writeOAMData(uint8_t value) -> void ;
-	auto writeScroll(uint8_t value) -> void ;
-	auto writeAddress(uint8_t value) -> void ;
-	auto readData() -> uint8_t ;
-	auto writeData(uint8_t value) -> void ;
-	auto writeDMA(uint8_t value) -> void ;
-	auto incrementX() -> void ;
-	auto incrementY() -> void ;
-	auto copyX() -> void ;
-	auto copyY() -> void ;
-	auto nmiChange() -> void ;
-	auto setVerticalBlank() -> void ; 
-	auto clearVerticalBlank() -> void ; 
-	auto fetchNameTableByte() -> void ; 
-	auto fetchAttributeTableByte() -> void ; 
-	auto fetchLowTileByte() -> void ; 
-	auto fetchHighTileByte() -> void ; 
-	auto storeTileData() -> void ; 
-	auto fetchTileData() -> uint32_t ; 
-	auto backgroundPixel() ->  uint8_t ; 
-	auto spritePixel() -> std::pair<uint8_t, uint8_t> ; 
-	auto renderPixel() ; 
-	auto fetchSpritePattern(int i, int row) -> uint32_t ; 
-	auto evaluateSprites() -> void ; 
-	auto tick() -> void ; 
-	auto step() -> void;
+	void writeRegister(uint16_t address, uint8_t value);
+	void writeControl(uint8_t value);
+	void writeMask(uint8_t value);
+	uint8_t readStatus();
+	void writeOAMAddress(uint8_t value);
+	uint8_t readOAMData();
+	void writeOAMData(uint8_t value);
+	void writeScroll(uint8_t value);
+	void writeAddress(uint8_t value);
+	uint8_t readData();
+	void writeData(uint8_t value);
+	void writeDMA(uint8_t value);
+	void incrementX();
+	void incrementY();
+	void copyX();
+	void copyY();
+	void nmiChange();
+	void setVerticalBlank(); 
+	void clearVerticalBlank(); 
+	void fetchNameTableByte(); 
+	void fetchAttributeTableByte(); 
+	void fetchLowTileByte(); 
+	void fetchHighTileByte(); 
+	void storeTileData(); 
+	uint32_t fetchTileData(); 
+	uint8_t backgroundPixel(); 
+	std::pair<uint8_t, uint8_t> spritePixel(); 
+	void renderPixel(); 
+	uint32_t fetchSpritePattern(int i, int row); 
+	void evaluateSprites(); 
+	void tick(); 
+	void step();
 };
 
 extern Cpu cpu;
 extern Memory memory;
+
+#endif

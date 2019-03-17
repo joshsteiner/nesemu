@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NESEMU_SCREEN_H
+#define NESEMU_SCREEN_H
 
 #include <SDL.h>
 #undef main
@@ -11,12 +12,12 @@
 
 using Color = uint32_t;
 
-const size_t DisplayWidth = 256;
+const size_t DisplayWidth  = 256;
 const size_t DisplayHeight = 240;
 
 const std::string WindowTitle = "nesemu";
 
-inline auto sdl_assert(bool cond) -> void
+inline void sdl_assert(bool cond)
 {
 	if (!cond) {
 		std::ostringstream err{ "SDL Error: " };
@@ -36,9 +37,11 @@ public:
 	~Screen();
 
 public:
-	auto get(unsigned r, unsigned c) -> Color;
-	auto set(unsigned r, unsigned c, Color value) -> void;
-	auto update() -> void;
+	Color get(unsigned r, unsigned c);
+	void set(unsigned r, unsigned c, Color value);
+	void update();
 };
 
 extern Screen screen;
+
+#endif

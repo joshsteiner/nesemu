@@ -1,11 +1,12 @@
-#pragma once
-
-#include <memory>
+#ifndef NESEMU_CONSOLE_H
+#define NESEMU_CONSOLE_H
 
 #include "screen.h"
 #include "cpu.h"
 #include "ppu.h"
 #include "memory.h"
+
+#include <memory>
 
 class Console
 {
@@ -28,3 +29,5 @@ public:
 		ppu.Reset();
 	}
 };
+
+#endif

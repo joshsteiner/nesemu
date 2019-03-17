@@ -7,7 +7,7 @@ Ppu ppu;
 Memory memory;
 Screen screen;
 
-auto run_loop(Console& console) -> void
+void run_loop(Console& console)
 {
 	uint32_t tick, prev_tick = SDL_GetTicks();
 
@@ -25,7 +25,7 @@ auto run_loop(Console& console) -> void
 		//if (tick - prev_tick > 100) {
 		//printf("cpu cyc: %u, ppu cyc: %u, ppu scanline: %u\n", 
 		//	console.cpu.cycle, console.ppu.cycle, console.ppu.scan_line);
-		std::clog << str(cpu.take_snapshot()) << '\n';
+		std::clog << cpu.take_snapshot().str() << '\n';
 		console.step();
 		screen.update();
 		//	prev_tick = tick;
@@ -33,7 +33,7 @@ auto run_loop(Console& console) -> void
 	}
 }
 
-auto main(int argc, char **argv) -> int
+int main(int argc, char **argv)
 {
 	std::ios::sync_with_stdio(0);
 

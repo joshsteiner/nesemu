@@ -3,7 +3,7 @@
 
 Ppu::Ppu() { Reset(); }
 
-auto Ppu::Reset() -> void
+void Ppu::Reset()
 {
 	cycle = 340;
 	scan_line = 240;
@@ -13,7 +13,7 @@ auto Ppu::Reset() -> void
 	writeOAMAddress(0);
 }
 
-auto Ppu::palette_at(uint16_t addr) -> uint8_t&
+uint8_t& Ppu::palette_at(uint16_t addr)
 {
 	if (addr >= 16 && addr % 4 == 0) {
 		addr -= 16;
@@ -21,7 +21,7 @@ auto Ppu::palette_at(uint16_t addr) -> uint8_t&
 	return paletteData.at(addr);
 }
 
-auto Ppu::readRegister(uint16_t address) -> uint8_t
+uint8_t Ppu::readRegister(uint16_t address)
 {
 	switch (address) {
 	case 0x2002: return readStatus();
@@ -31,10 +31,9 @@ auto Ppu::readRegister(uint16_t address) -> uint8_t
 	return 0;
 }
 
-auto Ppu::writeRegister(uint16_t address, uint8_t value) -> void
+void Ppu::writeRegister(uint16_t address, uint8_t value)
 {
 	reg = value;
-	std::clog << "- 1\n";
 	switch (address) {
 	case 0x2000: writeControl(value); break;
 	case 0x2001: writeMask(value); break;
@@ -45,11 +44,10 @@ auto Ppu::writeRegister(uint16_t address, uint8_t value) -> void
 	case 0x2007: writeData(value); break;
 	case 0x4014: writeDMA(value); break;
 	}
-	std::clog << "- 2\n";
 }
 
 // $2000: PPUCTRL
-auto Ppu::writeControl(uint8_t value) -> void
+void Ppu::writeControl(uint8_t value)
 {
 	flagNameTable = (value >> 0) & 3;
 	flagIncrement = (value >> 2) & 1;
@@ -63,7 +61,7 @@ auto Ppu::writeControl(uint8_t value) -> void
 }
 
 // $2001: PPUMASK
-auto Ppu::writeMask(uint8_t value) -> void 
+void Ppu::writeMask(uint8_t value) 
 {
 	flagGrayscale = (value >> 0) & 1;
 	flagShowLeftBackground = (value >> 1) & 1;
@@ -76,7 +74,7 @@ auto Ppu::writeMask(uint8_t value) -> void
 }
 
 // $2002: PPUSTATUS
-auto Ppu::readStatus() -> uint8_t 
+uint8_t Ppu::readStatus() 
 {
 	auto result = reg & 0x1F;
 	result |= flagSpriteOverflow << 5;
@@ -91,26 +89,26 @@ auto Ppu::readStatus() -> uint8_t
 }
 
 // $2003: OAMADDR
-auto Ppu::writeOAMAddress(uint8_t value) -> void 
+void Ppu::writeOAMAddress(uint8_t value) 
 {
 	oamAddress = value;
 }
 
 // $2004: OAMDATA (read)
-auto Ppu::readOAMData() -> uint8_t
+uint8_t Ppu::readOAMData()
 {
 	return oamData.at(oamAddress);
 }
 
 // $2004: OAMDATA (write)
-auto Ppu::writeOAMData(uint8_t value) -> void
+void Ppu::writeOAMData(uint8_t value)
 {
 	oamData.at(oamAddress) = value;
 	oamAddress++;
 }
 
 // $2005: PPUSCROLL
-auto Ppu::writeScroll(uint8_t value) -> void
+void Ppu::writeScroll(uint8_t value)
 {
 	if (w == 0) {
 		t = (t & 0xFFE0) | (value >> 3);
@@ -124,7 +122,7 @@ auto Ppu::writeScroll(uint8_t value) -> void
 }
 
 // $2006: PPUADDR
-auto Ppu::writeAddress(uint8_t value) -> void
+void Ppu::writeAddress(uint8_t value)
 {
 	if (w == 0) {
 		t = (t & 0x80FF) | ((value & 0x3F) << 8);
@@ -137,7 +135,7 @@ auto Ppu::writeAddress(uint8_t value) -> void
 }
 
 // $2007: PPUDATA (read)
-auto Ppu::readData() -> uint8_t 
+uint8_t Ppu::readData() 
 {
 	// TODO: read from ppu, not memory
 	auto value = memory.read(v);
@@ -155,7 +153,7 @@ auto Ppu::readData() -> uint8_t
 }
 
 // $2007: PPUDATA (write)
-auto Ppu::writeData(uint8_t value) -> void
+void Ppu::writeData(uint8_t value)
 {
 	// TODO: read from ppu, not memory
 	std::clog << "Ppu::writeData : v=" << std::hex << v << "\n";
@@ -164,7 +162,7 @@ auto Ppu::writeData(uint8_t value) -> void
 }
 
 // $4014: OAMDMA
-auto Ppu::writeDMA(uint8_t value) -> void 
+void Ppu::writeDMA(uint8_t value) 
 {
 	auto address = value << 8;
 	for (auto i = 0; i < 256; i++) {
@@ -178,7 +176,7 @@ auto Ppu::writeDMA(uint8_t value) -> void
 
 // NTSC Timing Helper Functions
 
-auto Ppu::incrementX() -> void
+void Ppu::incrementX()
 {
 	if ((v & 0x001F) == 31) {
 		v &= 0xFFE0;
@@ -188,7 +186,7 @@ auto Ppu::incrementX() -> void
 	}
 }
 
-auto Ppu::incrementY() -> void 
+void Ppu::incrementY() 
 {
 	if ((v & 0x7000) != 0x7000) {
 		v += 0x1000;
@@ -207,10 +205,10 @@ auto Ppu::incrementY() -> void
 	}
 }
 
-auto Ppu::copyX() -> void { v = (v & 0xFBE0) | (t & 0x041F); }
-auto Ppu::copyY() -> void { v = (v & 0x841F) | (t & 0x7BE0); }
+void Ppu::copyX() { v = (v & 0xFBE0) | (t & 0x041F); }
+void Ppu::copyY() { v = (v & 0x841F) | (t & 0x7BE0); }
 
-auto Ppu::nmiChange() -> void
+void Ppu::nmiChange()
 {
 	bool nmi = nmiOutput && nmiOccurred;
 	if (nmi && !nmiPrevious) {
@@ -221,33 +219,33 @@ auto Ppu::nmiChange() -> void
 	nmiPrevious = nmi;
 }
 
-auto Ppu::setVerticalBlank() -> void
+void Ppu::setVerticalBlank()
 {
 	screen.update();
 	nmiOccurred = true;
 	nmiChange();
 }
 
-auto Ppu::clearVerticalBlank() -> void
+void Ppu::clearVerticalBlank()
 {
 	nmiOccurred = false;
 	nmiChange();
 }
 
-auto Ppu::fetchNameTableByte() -> void
+void Ppu::fetchNameTableByte()
 {
 	auto address = 0x2000 | (v & 0x0FFF);
 	nameTableByte = memory.read(address);
 }
 
-auto Ppu::fetchAttributeTableByte() -> void 
+void Ppu::fetchAttributeTableByte() 
 {
 	auto address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
 	auto shift = ((v >> 4) & 4) | (v & 2);
 	attributeTableByte = ((memory.read(address) >> shift) & 3) << 2;
 }
 
-auto Ppu::fetchLowTileByte() -> void
+void Ppu::fetchLowTileByte()
 {
 	auto fineY = (v >> 12) & 7;
 	auto table = flagBackgroundTable;
@@ -256,7 +254,7 @@ auto Ppu::fetchLowTileByte() -> void
 	lowTileByte = memory.read(address);
 }
 
-auto Ppu::fetchHighTileByte() -> void
+void Ppu::fetchHighTileByte()
 {
 	auto fineY = (v >> 12) & 7;
 	auto table = flagBackgroundTable;
@@ -265,7 +263,7 @@ auto Ppu::fetchHighTileByte() -> void
 	highTileByte = memory.read(address + 8);
 }
 
-auto Ppu::storeTileData() -> void
+void Ppu::storeTileData()
 {
 	uint32_t data = 0;
 	for (auto i = 0; i < 8; i++) {
@@ -280,12 +278,12 @@ auto Ppu::storeTileData() -> void
 	tileData |= data;
 }
 
-auto Ppu::fetchTileData() -> uint32_t 
+uint32_t Ppu::fetchTileData() 
 {
 	return tileData >> 32;
 }
 
-auto Ppu::backgroundPixel() ->  uint8_t 
+uint8_t Ppu::backgroundPixel()
 {
 	if (flagShowBackground == 0) {
 		return 0;
@@ -294,7 +292,7 @@ auto Ppu::backgroundPixel() ->  uint8_t
 	return data & 0x0F;
 }
 
-auto Ppu::spritePixel() -> std::pair<uint8_t, uint8_t> 
+std::pair<uint8_t, uint8_t> Ppu::spritePixel() 
 {
 	if (flagShowSprites == 0) {
 		return { 0, 0 };
@@ -314,12 +312,13 @@ auto Ppu::spritePixel() -> std::pair<uint8_t, uint8_t>
 	return { 0, 0 };
 }
 
-auto Ppu::renderPixel() 
+void Ppu::renderPixel() 
 {
 	auto x = cycle - 1;
 	auto y = scan_line;
 	auto background = backgroundPixel();
-	auto [i, sprite] = spritePixel();
+	uint8_t i, sprite;
+	std::tie(i, sprite) = spritePixel();
 	if (x < 8 && flagShowLeftBackground == 0) {
 		background = 0;
 	}
@@ -349,7 +348,7 @@ auto Ppu::renderPixel()
 	screen.set(y, x, c);
 }
 
-auto Ppu::fetchSpritePattern(int i, int row) -> uint32_t 
+uint32_t Ppu::fetchSpritePattern(int i, int row) 
 {
 	auto tile = oamData.at(i * 4 + 1);
 	auto attributes = oamData.at(i * 4 + 2);
@@ -395,7 +394,7 @@ auto Ppu::fetchSpritePattern(int i, int row) -> uint32_t
 	return data;
 }
 
-auto Ppu::evaluateSprites() -> void
+void Ppu::evaluateSprites()
 {
 	unsigned h = flagSpriteSize == 0 ? 8 : 16;
 	auto count = 0;
@@ -423,7 +422,7 @@ auto Ppu::evaluateSprites() -> void
 }
 
 // tick updates Cycle, ScanLine and Frame counters
-auto Ppu::tick() -> void
+void Ppu::tick()
 {
 	if (nmiDelay > 0) {
 		nmiDelay--;
@@ -455,7 +454,7 @@ auto Ppu::tick() -> void
 }
 
 // Step executes a single PPU cycle
-auto Ppu::step() -> void 
+void Ppu::step() 
 {
 	tick();
 

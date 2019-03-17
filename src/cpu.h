@@ -1,26 +1,34 @@
-#pragma once
-
-#include <array>
-#include <memory>
-#include <cstdint>
-#include <sstream>
+#ifndef NESEMU_CPU_H
+#define NESEMU_CPU_H
 
 #include "common.h"
 #include "cart.h"
 #include "memory.h"
 #include "ppu.h"
 
+#include <array>
+#include <memory>
+#include <cstdint>
+#include <sstream>
+
 class Memory;
 using ExtendedAddr = int;
 
-// pc, instr, a, x, y, p, sp, cyc
-using CpuSnapshot = std::tuple<
-	uint16_t, std::vector<uint8_t>, 
-	uint8_t, uint8_t, uint8_t, uint8_t, uint8_t,
-	unsigned
->;
+class CpuSnapshot
+{
+public:
+	const uint16_t pc;
+	const std::vector<uint8_t> instr;
+	const uint8_t a, x, y;
+	const uint8_t p, sp;
+	const unsigned cyc;
 
-auto str(const CpuSnapshot& snap) -> std::string;
+public:
+	CpuSnapshot(uint16_t pc, std::vector<uint8_t> instr, uint8_t a,
+	            uint8_t x, uint8_t y, uint8_t p, uint8_t sp, unsigned cyc);
+
+	std::string str() const;
+};
 
 class Cpu 
 {
@@ -67,8 +75,21 @@ private: // types
 		None, PageCross, Branch
 	};
 
-	using Cycles = std::pair<unsigned, Penalty>;
-	using Op = std::tuple<Instruction, Mode, Cycles>;
+	struct Op
+	{
+		Instruction instr;
+		Mode mode;
+		unsigned base_cycle;
+		Penalty penalty;
+
+		Op(Instruction instr, Mode mode, unsigned base_cycle, Penalty penalty)
+			: instr(instr)
+			, mode(mode)
+			, base_cycle(base_cycle)
+			, penalty(penalty)
+		{}
+ 
+	};
 
 public:
 	enum class Interrupt
@@ -80,8 +101,8 @@ private: // constants
 	static const uint16_t StackPage = 0x0100;
 	static const unsigned CpuCycleWraparound = 341;
 
-	static const ExtendedAddr NmiVecAddr = 0xFFFA;
-	static const ExtendedAddr ResetVecAddr = 0xFFFC;
+	static const ExtendedAddr NmiVecAddr    = 0xFFFA;
+	static const ExtendedAddr ResetVecAddr  = 0xFFFC;
 	static const ExtendedAddr IrqBrkVecAddr = 0xFFFE;
 	
 public: // members
@@ -101,29 +122,29 @@ private: // members
 
 	// Memory* memory;
 
-public: // ctors,dtors
+public: // ctors, dtors
 	Cpu();
 
 private: // methods
-	auto push(uint8_t value) -> void;
-	auto push_addr(uint16_t value) -> void;
-	auto pull() -> uint8_t;
-	auto pull_addr() -> uint16_t;
+	void push(uint8_t value);
+	void push_addr(uint16_t value);
+	uint8_t pull();
+	uint16_t pull_addr();
 
-	auto read_addr_from_mem(uint16_t addr) -> uint16_t;
+	uint16_t read_addr_from_mem(uint16_t addr);
 
-	auto peek_arg() -> uint8_t;
-	auto peek_addr_arg() -> uint16_t;
+	uint8_t peek_arg();
+	uint16_t peek_addr_arg();
 
-	auto zn(uint8_t val) -> void;
+	void zn(uint8_t val);
 
-	auto get_addr(Mode mode) -> ExtendedAddr;
-	auto get_arg_size(Mode mode) -> unsigned;
-	auto exec_instr(Instruction instr, ExtendedAddr addr) -> void;
-	auto get_op(uint8_t opcode) -> Op;
+	ExtendedAddr get_addr(Mode mode);
+	unsigned get_arg_size(Mode mode);
+	void exec_instr(Instruction instr, ExtendedAddr addr);
+	Op get_op(uint8_t opcode);
 
 	template <Interrupt Int>
-	auto do_int() -> void
+	void do_int()
 	{
 		push_addr(program_counter);
 		push(status.raw | bit(4) | bit(5));
@@ -140,23 +161,25 @@ private: // methods
 	}
 
 public: // methods
-	// inline auto connect(Memory* memory) -> void { this->memory = memory; }
+	// inline auto connect(Memory* memory) { this->memory = memory; }
 
-	auto step() -> unsigned;
-	auto reset() -> void;
+	unsigned step();
+	void reset();
 
 	template <Interrupt Int> 
-	auto trigger() -> void 
+	void trigger() 
 	{ 
 		if (Int == Interrupt::Nmi || !status.interrupt_disable) {
 			interrupt = Int;
 		}
 	}
 
-	auto stall(unsigned cycles) -> void { cycle_stall = cycles; }
+	void stall(unsigned cycles) { cycle_stall = cycles; }
 
-	auto take_snapshot() -> CpuSnapshot;
+	CpuSnapshot take_snapshot();
 };
 
 extern Cpu cpu;
 extern Memory memory;
+
+#endif

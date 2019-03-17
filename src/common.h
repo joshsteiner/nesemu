@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NESEMU_COMMON_H
+#define NESEMU_COMMON_H
 
 #include <cstdint>
 
@@ -9,12 +10,14 @@ union { uint8_t raw; struct FIELDS; }
 	((VAL) >= (LBOUND) && (VAL) < (RBOUND))
 
 template <typename T>
-inline auto even(T x) -> bool { return x % 2 == 0; }
+inline bool even(T x) { return x % 2 == 0; }
 
 template <typename T>
-inline auto odd(T x) -> bool { return !even(x); }
+inline bool odd(T x) { return !even(x); }
 
-constexpr auto bit(int n) -> uint8_t
+constexpr uint8_t bit(int n)
 {
 	return 1 << n;
 }
+
+#endif

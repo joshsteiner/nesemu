@@ -1,10 +1,10 @@
-﻿#include <cassert>
-#include <sstream>
-
-#include "memory.h"
+﻿#include "memory.h"
 #include "common.h"
 
-auto Memory::at(ExtendedAddr addr) -> uint8_t&
+#include <cassert>
+#include <sstream>
+
+uint8_t& Memory::at(ExtendedAddr addr)
 {
 	if (addr < 0) {
 		switch (addr) {
@@ -39,7 +39,7 @@ auto Memory::at(ExtendedAddr addr) -> uint8_t&
 	throw "invalid addr in Memory::at";
 }
 
-auto Memory::read(ExtendedAddr addr) -> uint8_t
+uint8_t Memory::read(ExtendedAddr addr)
 {
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
 		addr = (addr % 0x8) + 0x2000;
@@ -54,7 +54,7 @@ auto Memory::read(ExtendedAddr addr) -> uint8_t
 	}
 }
 
-auto Memory::write(ExtendedAddr addr, uint8_t value) -> void
+void Memory::write(ExtendedAddr addr, uint8_t value)
 {
 	std::clog << "in  Memory::write(" << std::hex << addr << "," << (int)value << ")\n";
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
