@@ -26,14 +26,14 @@ Screen::~Screen()
 Color Screen::get(unsigned r, unsigned c)
 {
 	auto pixels = static_cast<Color*>(surface->pixels);
-	return pixels[c * surface->pitch + r];
+	return pixels[r * surface->pitch / 4 + c];
 }
 
 void Screen::set(unsigned r, unsigned c, Color value)
 {
-	std::clog << "set(r=" << r << "c=" << c << "val=" << std::hex << value << '\n';
+	std::clog << "set(r=" << std::dec << r << ",c=" << c << ",val=" << std::hex << value << ")\n";
 	auto pixels = static_cast<Color*>(surface->pixels);
-	pixels[r * surface->pitch + c] = value;
+	pixels[r * surface->pitch / 4 + c] = value;
 }
 
 void Screen::update()

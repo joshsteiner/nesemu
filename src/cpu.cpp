@@ -127,8 +127,8 @@ uint16_t Cpu::peek_addr_arg()
 
 void Cpu::zn(uint8_t val)
 {
-	status.zero = !val;
-	status.negative = val & bit(7) ? 1 : 0;
+	status.bits.zero = !val;
+	status.bits.negative = val & bit(7) ? 1 : 0;
 }
 
 ExtendedAddr Cpu::get_addr(Mode mode)
@@ -246,25 +246,25 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 		zn(y);
 		break;
 	case Clc:
-		status.carry = 0;
+		status.bits.carry = 0;
 		break;
 	case Cld:
-		status.decimal_mode = 0;
+		status.bits.decimal_mode = 0;
 		break;
 	case Cli:
-		status.interrupt_disable = 0;
+		status.bits.interrupt_disable = 0;
 		break;
 	case Clv:
-		status.overflow = 0;
+		status.bits.overflow = 0;
 		break;
 	case Sec:
-		status.carry = 1;
+		status.bits.carry = 1;
 		break;
 	case Sed:
-		status.decimal_mode = 1;
+		status.bits.decimal_mode = 1;
 		break;
 	case Sei:
-		status.interrupt_disable = 1;
+		status.bits.interrupt_disable = 1;
 		break;
 	case Tax:
 		zn(x = a);
@@ -297,49 +297,49 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 		zn(a = pull());
 		break;
 	case Bcs:
-		if (status.carry) {
+		if (status.bits.carry) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bcc:
-		if (!status.carry) {
+		if (!status.bits.carry) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Beq:
-		if (status.zero) {
+		if (status.bits.zero) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bne:
-		if (!status.zero) {
+		if (!status.bits.zero) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bmi:
-		if (status.negative) {
+		if (status.bits.negative) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bpl:
-		if (!status.negative) {
+		if (!status.bits.negative) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bvs:
-		if (status.overflow) {
+		if (status.bits.overflow) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
 	case Bvc:
-		if (!status.overflow) {
+		if (!status.bits.overflow) {
 			program_counter = addr;
 			jumped = true;
 		}
@@ -365,33 +365,33 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 	case Bit: 
 	{
 		auto m = memory.read(addr);
-		status.zero = (a & m) == 0;
-		status.overflow = (m >> 6) & 1;
-		status.negative = (m >> 7) & 1;
+		status.bits.zero = (a & m) == 0;
+		status.bits.overflow = (m >> 6) & 1;
+		status.bits.negative = (m >> 7) & 1;
 		break;
 	}
 	case Cmp:
 	{
 		auto m = memory.read(addr);
-		status.carry = a >= m;
-		status.zero = a == m;
-		status.negative = ((a - m) >> 7) & 1;
+		status.bits.carry = a >= m;
+		status.bits.zero = a == m;
+		status.bits.negative = ((a - m) >> 7) & 1;
 		break;
 	}
 	case Cpx:
 	{
 		auto m = memory.read(addr);
-		status.carry = x >= m;
-		status.zero = x == m;
-		status.negative = ((x - m) >> 7) & 1;
+		status.bits.carry = x >= m;
+		status.bits.zero = x == m;
+		status.bits.negative = ((x - m) >> 7) & 1;
 		break;
 	}
 	case Cpy: 
 	{
 		auto m = memory.read(addr);
-		status.carry = y >= m;
-		status.zero = y == m;
-		status.negative = ((y - m) >> 7) & 1;
+		status.bits.carry = y >= m;
+		status.bits.zero = y == m;
+		status.bits.negative = ((y - m) >> 7) & 1;
 		break;
 	}
 	case And:
@@ -404,27 +404,27 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 		zn(a ^= memory.read(addr));
 		break;
 	case Asl:
-		status.carry = memory.read(addr) & bit(7) ? 1 : 0;
+		status.bits.carry = memory.read(addr) & bit(7) ? 1 : 0;
 		memory.write(addr, memory.read(addr) << 1);
 		zn(memory.read(addr));
 		break;
 	case Lsr:
-		status.carry = memory.read(addr) & bit(0) ? 1 : 0;
+		status.bits.carry = memory.read(addr) & bit(0) ? 1 : 0;
 		memory.write(addr, memory.read(addr) >> 1);
 		zn(memory.read(addr));
 		break;
 	case Rol:
 	{
-		auto old_carry = status.carry;
-		status.carry = memory.read(addr) & bit(7) ? 1 : 0;
+		auto old_carry = status.bits.carry;
+		status.bits.carry = memory.read(addr) & bit(7) ? 1 : 0;
 		memory.write(addr, memory.read(addr) << 1 | old_carry);
 		zn(memory.read(addr));
 		break;
 	}
 	case Ror:
 	{
-		auto old_carry = status.carry;
-		status.carry = memory.read(addr) & bit(0) ? 1 : 0;
+		auto old_carry = status.bits.carry;
+		status.bits.carry = memory.read(addr) & bit(0) ? 1 : 0;
 		memory.write(addr, memory.read(addr) >> 1 | old_carry << 7);
 		zn(memory.read(addr));
 		break;
@@ -432,17 +432,17 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 	case Adc:
 	{
 		auto old_a = a;
-		zn(a += memory.read(addr) + status.carry);
-		status.carry = old_a + memory.read(addr) + status.carry > 0xFF;
-		status.overflow = !((old_a ^ memory.read(addr)) & bit(7)) && ((old_a ^ a) & bit(7));
+		zn(a += memory.read(addr) + status.bits.carry);
+		status.bits.carry = old_a + memory.read(addr) + status.bits.carry > 0xFF;
+		status.bits.overflow = !((old_a ^ memory.read(addr)) & bit(7)) && ((old_a ^ a) & bit(7));
 		break;
 	}
 	case Sbc:
 	{
 		auto old_a = a;
-		zn(a -= memory.read(addr) + !status.carry);
-		status.carry = old_a - memory.read(addr) - !status.carry >= 0x00;
-		status.overflow = (old_a ^ memory.read(addr)) & bit(7) && ((old_a ^ a) & bit(7));
+		zn(a -= memory.read(addr) + !status.bits.carry);
+		status.bits.carry = old_a - memory.read(addr) - !status.bits.carry >= 0x00;
+		status.bits.overflow = (old_a ^ memory.read(addr)) & bit(7) && ((old_a ^ a) & bit(7));
 		break;
 	}
 	case Jmp:
@@ -462,7 +462,7 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 		program_counter++;
 		push_addr(program_counter);
 		push(status.raw | bit(4) | bit(5));
-		status.break_ = 1;
+		status.bits.break_ = 1;
 		program_counter = read_addr_from_mem(IrqBrkVecAddr);
 		jumped = true;
 		break;

@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #define FLAG_BYTE(FIELDS) \
-union { uint8_t raw; struct FIELDS; }
+union { uint8_t raw; struct FIELDS bits; }
 
 #define BETWEEN(VAL, LBOUND, RBOUND) \
 	((VAL) >= (LBOUND) && (VAL) < (RBOUND))

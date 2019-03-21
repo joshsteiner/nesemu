@@ -16,7 +16,7 @@ public:
 	unsigned frame = 0;
 
 	std::array<uint8_t, 32>   paletteData;
-	std::array<uint8_t, 2048> nametable_data;
+	std::array<uint8_t, 0x1000> nametable_data;
 	std::array<uint8_t, 256>  oamData;
 
 	std::array<Color, 64> palette{
@@ -118,6 +118,8 @@ public:
 	void evaluateSprites(); 
 	void tick(); 
 	void step();
+	uint8_t read(uint16_t addr);
+	void write(uint16_t addr, uint8_t value);
 };
 
 extern Cpu cpu;

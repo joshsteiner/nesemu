@@ -9,5 +9,8 @@ BUILD_DIR=build
 nesemu: src/main.cpp build/cpu.o build/ppu.o build/memory.o build/screen.o
 	$(COMPILER) $^ -o nesemu $(FLAGS) $(LINK_FLAGS)
 
-$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
-	$(COMPILER) -c $^ -o $@ $(FLAGS)
+$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp $(BUILD_DIR)
+	$(COMPILER) -c $< -o $@ $(FLAGS)
+
+$(BUILD_DIR):
+	mkdir $(BUILD_DIR)

@@ -58,22 +58,13 @@ void Memory::write(ExtendedAddr addr, uint8_t value)
 {
 	std::clog << "in  Memory::write(" << std::hex << addr << "," << (int)value << ")\n";
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
-		std::clog << "+ 1\n";
 		addr = (addr % 0x8) + 0x2000;
-		std::clog << "+ 2\n";
 		ppu.writeRegister(addr, value);
-		std::clog << "+ 3\n";
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
-		std::clog << "+ 4\n";
 		if (addr == 0x4014) {
-			std::clog << "+ 5\n";
 			ppu.writeRegister(addr, value);
-			std::clog << "+ 6\n";
 		}
 	} else {
-		std::clog << "+ 7\n";
 		at(addr) = value;
-		std::clog << "+ 8\n";
 	}
-	std::clog << "out Memory::write\n";
 }

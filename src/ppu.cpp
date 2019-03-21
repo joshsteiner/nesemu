@@ -13,6 +13,66 @@ void Ppu::Reset()
 	writeOAMAddress(0);
 }
 
+uint8_t Ppu::read(uint16_t addr)
+{
+	std::clog << "Ppu::read(" << std::hex << addr << ")\n";
+
+	if (BETWEEN(addr, 0, 0x2000)) {
+		return memory.cart.vrom.at(addr);
+	} else if (BETWEEN(addr, 0x2000, 0x3F00)) {
+		// no nametable mirroring in Ppu::read, only memory mirroring instead 
+		if (addr > 0x3000) {
+			addr -= 0x1000;
+		}
+		addr -= 0x2000;
+		std::clog << "nametable_data: reading: " << addr << "\n";
+		return nametable_data.at(addr);
+	} else if (BETWEEN(addr, 0x3F00, 0x4000)) {
+		addr = (addr - 0x3F00) % 0x20;
+		return paletteData.at(addr);
+	}
+
+	// TEMPORARY SOLUTION: ignore this for now
+	return read(addr % 0x4000);
+	throw std::string("Invalid addr in Ppu::read()");
+}
+
+void Ppu::write(uint16_t addr, uint8_t value)
+{
+	std::clog << "Ppu::write(" << addr << ", " << (int)value << ")";
+	if (BETWEEN(addr, 0, 0x2000)) {
+		// is this memory read only?
+		std::clog << "potential ROM write\n";
+		memory.cart.vrom.at(addr) = value;
+		return;
+	} else if (BETWEEN(addr, 0x2000, 0x3F00)) {
+		if (addr > 0x3000) {
+			addr -= 0x1000;
+		}
+		addr -= 0x2000;
+		unsigned neutral_bit;
+		switch (memory.cart.mirroring) {
+		case VERTICAL:
+			// Vertical: $2000 = $2800 ; $2400 = $2C00
+			neutral_bit = (1 << 11);
+			break;
+		case HORIZONTAL:
+			// Horizontal: $2000 = $2400 ; $2800 = $2C00 
+			neutral_bit = (1 << 10);
+			break;
+		}
+		std::clog << "nametable_data: writing to: " << addr << " & " << (addr ^ neutral_bit) << "\n";
+		nametable_data.at(addr) = nametable_data.at(addr ^ neutral_bit) = value;
+		return;
+	} else if (BETWEEN(addr, 0x3F00, 0x4000)) {
+		addr = (addr - 0x3F00) % 0x20;
+		paletteData.at(addr) = value;
+		return;
+	}
+
+	throw std::string("Invalid addr in Ppu::write()");
+}
+
 uint8_t& Ppu::palette_at(uint16_t addr)
 {
 	if (addr >= 16 && addr % 4 == 0) {
@@ -138,7 +198,7 @@ void Ppu::writeAddress(uint8_t value)
 uint8_t Ppu::readData() 
 {
 	// TODO: read from ppu, not memory
-	auto value = memory.read(v);
+	auto value = read(v);
 	// emulate buffered reads
 	if (v % 0x4000 < 0x3F00) {
 		auto buffered = bufferedData;
@@ -157,7 +217,7 @@ void Ppu::writeData(uint8_t value)
 {
 	// TODO: read from ppu, not memory
 	std::clog << "Ppu::writeData : v=" << std::hex << v << "\n";
-	memory.write(v, value);
+	write(v, value);
 	v += (flagIncrement == 0) ? 1 : 32;
 }
 

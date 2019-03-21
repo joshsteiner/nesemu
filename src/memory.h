@@ -25,6 +25,8 @@ class Memory
 {
 private:
 	std::array<uint8_t, InternalRam> ram;
+
+public:
 	Cartridge cart;
 
 private:

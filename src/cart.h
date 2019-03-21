@@ -7,6 +7,12 @@
 #include <fstream>
 #include <cstdint>
 
+enum Mirroring
+{
+	HORIZONTAL=0,
+	VERTICAL=1
+};
+
 class Cartridge 
 {
 private:

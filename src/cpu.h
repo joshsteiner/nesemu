@@ -154,8 +154,8 @@ private: // methods
 		case Interrupt::Nmi: addr = NmiVecAddr; break;
 		}
 		program_counter = read_addr_from_mem(addr);
-		status.break_ = 1;
-		status.interrupt_disable = 1;
+		status.bits.break_ = 1;
+		status.bits.interrupt_disable = 1;
 		cycle += 7;
 		interrupt = Interrupt::None;
 	}
@@ -169,7 +169,7 @@ public: // methods
 	template <Interrupt Int> 
 	void trigger() 
 	{ 
-		if (Int == Interrupt::Nmi || !status.interrupt_disable) {
+		if (Int == Interrupt::Nmi || !status.bits.interrupt_disable) {
 			interrupt = Int;
 		}
 	}
