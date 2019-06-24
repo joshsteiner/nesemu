@@ -23,19 +23,16 @@ static bool pages_differ(uint16_t addr1, uint16_t addr2)
 	return (addr1 & 0xFF00) != (addr2 & 0xFF00);
 }
 
-CpuSnapshot::CpuSnapshot(uint16_t pc, std::vector<uint8_t> instr, uint8_t a, 
-                         uint8_t x, uint8_t y, uint8_t p, uint8_t sp, unsigned cyc)
-	: pc(pc)
-	, instr(instr)
-	, a(a)
-	, x(x)
-	, y(y)
-	, p(p)
-	, sp(sp)
-	, cyc(cyc)
+Cpu_snapshot::Cpu_snapshot(
+	uint16_t pc, std::vector<uint8_t> instr, uint8_t a,
+	uint8_t x, uint8_t y, uint8_t p, uint8_t sp, unsigned cyc
+	)
+	: pc(pc) , instr(std::move(instr))
+	, a(a) , x(x) , y(y)
+	, p(p) , sp(sp) , cyc(cyc)
 {}
 
-std::string CpuSnapshot::str() const
+std::string Cpu_snapshot::str() const
 {
 	std::ostringstream strm;
 	strm
@@ -57,7 +54,7 @@ std::string CpuSnapshot::str() const
 
 	// TODO: deassemble instruction
 
-	strm 
+	strm
 		<< "A:" << std::setw(2) << (int)a << ' '
 		<< "X:" << std::setw(2) << (int)x << ' '
 		<< "Y:" << std::setw(2) << (int)y << ' '
@@ -67,6 +64,13 @@ std::string CpuSnapshot::str() const
 
 	return strm.str();
 }
+
+Cpu::Op::Op(Instruction instr, Mode mode, unsigned base_cycle, Penalty penalty)
+	: instr(instr)
+	, mode(mode)
+	, base_cycle(base_cycle)
+	, penalty(penalty)
+{}
 
 Cpu::Cpu()
 {
@@ -80,7 +84,7 @@ Cpu::Cpu()
 
 void Cpu::push(uint8_t value)
 {
-	memory.write(StackPage + stack_ptr, value);
+	memory.write(stack_page + stack_ptr, value);
 	stack_ptr--;
 }
 
@@ -93,7 +97,7 @@ void Cpu::push_addr(uint16_t addr)
 uint8_t Cpu::pull()
 {
 	stack_ptr++;
-	return memory.read(StackPage + stack_ptr);
+	return memory.read(stack_page + stack_ptr);
 }
 
 uint16_t Cpu::pull_addr()
@@ -112,6 +116,38 @@ uint16_t Cpu::read_addr_from_mem(uint16_t addr)
 	);
 }
 
+void Cpu::do_int(Interrupt iterrupt)
+{
+	push_addr(program_counter);
+	push(status.raw | BIT(4) | BIT(5));
+	Extended_addr addr;
+	switch (interrupt) {
+	case Interrupt::irq:
+		addr = irq_vec_addr;
+		break;
+	case Interrupt::nmi:
+		addr = nmi_vec_addr;
+		break;
+	}
+	program_counter = read_addr_from_mem(addr);
+	status.break_ = 1;
+	status.interrupt_disable = 1;
+	cycle += 7;
+	this->interrupt = Interrupt::none;
+}
+
+void Cpu::trigger(Interrupt interrupt)
+{
+	if (interrupt == Interrupt::nmi || !status.interrupt_disable) {
+		this->interrupt = interrupt;
+	}
+}
+
+void Cpu::stall(unsigned cycles)
+{
+	cycle_stall = cycles;
+}
+
 uint8_t Cpu::peek_arg()
 {
 	return memory.read(program_counter + 1);
@@ -127,64 +163,64 @@ uint16_t Cpu::peek_addr_arg()
 
 void Cpu::zn(uint8_t val)
 {
-	status.bits.zero = !val;
-	status.bits.negative = val & bit(7) ? 1 : 0;
+	status.zero = !val;
+	status.negative = val & BIT(7) ? 1 : 0;
 }
 
-ExtendedAddr Cpu::get_addr(Mode mode)
+Extended_addr Cpu::get_addr(Mode mode)
 {
-	ExtendedAddr addr;
+	Extended_addr addr;
 	page_crossed = false;
 
 	switch (mode) {
-	case Implied:
+	case Mode::implied:
 		addr = 0;
 		break;
-	case Accumulator:
-		addr = ARegisterExtAddr;
+	case Mode::accumulator:
+		addr = a_register_ext_addr;
 		break;
-	case Immediate:
+	case Mode::immediate:
 		addr = program_counter + 1;
 		break;
-	case Relative:
+	case Mode::relative:
 		addr = program_counter + (int8_t)peek_arg() + 2;
-		page_crossed = pages_differ(program_counter + 2, addr); 
+		page_crossed = pages_differ(program_counter + 2, addr);
 		break;
-	case ZeroPage:
+	case Mode::zero_page:
 		addr = peek_arg();
 		break;
-	case ZeroPageX:
-		addr = (peek_arg() + x) % PageSize;
+	case Mode::zero_page_x:
+		addr = (peek_arg() + x) % page_size;
 		break;
-	case ZeroPageY:
-		addr = (peek_arg() + y) % PageSize;
+	case Mode::zero_page_y:
+		addr = (peek_arg() + y) % page_size;
 		break;
-	case Absolute:
+	case Mode::absolute:
 		addr = peek_addr_arg();
 		break;
-	case AbsoluteX:
-		addr = (peek_addr_arg() + x) % MemorySize;
+	case Mode::absolute_x:
+		addr = (peek_addr_arg() + x) % memory_size;
 		page_crossed = pages_differ(peek_addr_arg(), addr);
 		break;
-	case AbsoluteY:
-		addr = (peek_addr_arg() + y) % MemorySize;
+	case Mode::absolute_y:
+		addr = (peek_addr_arg() + y) % memory_size;
 		page_crossed = pages_differ(peek_addr_arg(), addr);
 		break;
-	case Indirect:
+	case Mode::indirect:
 		addr = read_addr_from_mem(peek_addr_arg());
 		break;
-	case IndirectX:
+	case Mode::indirect_x:
 		addr = as_addr(
-			memory.read((peek_arg() + x + 1) % PageSize),
-			memory.read((peek_arg() + x) % PageSize)
+			memory.read((peek_arg() + x + 1) % page_size),
+			memory.read((peek_arg() + x) % page_size)
 		);
 		page_crossed = pages_differ(addr - x, addr);
 		break;
-	case IndirectY:
+	case Mode::indirect_y:
 		addr = (as_addr(
-			memory.read((peek_arg() + 1) % PageSize),
+			memory.read((peek_arg() + 1) % page_size),
 			memory.read(peek_arg())
-		) + y) % MemorySize;
+		) + y) % memory_size;
 		page_crossed = pages_differ(addr - y, addr);
 		break;
 	}
@@ -195,279 +231,279 @@ ExtendedAddr Cpu::get_addr(Mode mode)
 unsigned Cpu::get_arg_size(Mode mode)
 {
 	switch (mode) {
-	case Implied: 
-	case Accumulator:
+	case Mode::implied:
+	case Mode::accumulator:
 		return 0;
-	case Immediate:
-	case Relative:
-	case ZeroPage:
-	case ZeroPageX:
-	case ZeroPageY:
-	case IndirectX:
-	case IndirectY:
+	case Mode::immediate:
+	case Mode::relative:
+	case Mode::zero_page:
+	case Mode::zero_page_x:
+	case Mode::zero_page_y:
+	case Mode::indirect_x:
+	case Mode::indirect_y:
 		return 1;
-	case Absolute:
-	case AbsoluteX:
-	case AbsoluteY:
-	case Indirect:
+	case Mode::absolute:
+	case Mode::absolute_x:
+	case Mode::absolute_y:
+	case Mode::indirect:
 		return 2;
 	}
 }
 
-void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
+void Cpu::exec_instr(Instruction instr, Extended_addr addr)
 {
 	jumped = false;
 
 	switch (instr) {
-	case Nop:
+	case Instruction::nop:
 		break;
-	case Inc:
+	case Instruction::inc:
 		memory.write(addr, memory.read(addr) + 1);
 		zn(memory.read(addr));
 		break;
-	case Inx:
+	case Instruction::inx:
 		++x;
 		zn(x);
 		break;
-	case Iny:
+	case Instruction::iny:
 		++y;
 		zn(y);
 		break;
-	case Dec:
+	case Instruction::dec:
 		memory.write(addr, memory.read(addr) - 1);
 		zn(memory.read(addr));
 		break;
-	case Dex:
+	case Instruction::dex:
 		--x;
 		zn(x);
 		break;
-	case Dey:
+	case Instruction::dey:
 		--y;
 		zn(y);
 		break;
-	case Clc:
-		status.bits.carry = 0;
+	case Instruction::clc:
+		status.carry = 0;
 		break;
-	case Cld:
-		status.bits.decimal_mode = 0;
+	case Instruction::cld:
+		status.decimal_mode = 0;
 		break;
-	case Cli:
-		status.bits.interrupt_disable = 0;
+	case Instruction::cli:
+		status.interrupt_disable = 0;
 		break;
-	case Clv:
-		status.bits.overflow = 0;
+	case Instruction::clv:
+		status.overflow = 0;
 		break;
-	case Sec:
-		status.bits.carry = 1;
+	case Instruction::sec:
+		status.carry = 1;
 		break;
-	case Sed:
-		status.bits.decimal_mode = 1;
+	case Instruction::sed:
+		status.decimal_mode = 1;
 		break;
-	case Sei:
-		status.bits.interrupt_disable = 1;
+	case Instruction::sei:
+		status.interrupt_disable = 1;
 		break;
-	case Tax:
+	case Instruction::tax:
 		zn(x = a);
 		break;
-	case Tay:
+	case Instruction::tay:
 		zn(y = a);
 		break;
-	case Txa:
+	case Instruction::txa:
 		zn(a = x);
 		break;
-	case Tya:
+	case Instruction::tya:
 		zn(a = y);
 		break;
-	case Txs:
+	case Instruction::txs:
 		stack_ptr = x;
 		break;
-	case Tsx:
+	case Instruction::tsx:
 		zn(x = stack_ptr);
 		break;
-	case Php:
-		push(status.raw | bit(4) | bit(5));
+	case Instruction::php:
+		push(status.raw | BIT(4) | BIT(5));
 		break;
-	case Pha:
+	case Instruction::pha:
 		push(a);
 		break;
-	case Plp:
-		status.raw = pull() & 0xEF | 0x20;
+	case Instruction::plp:
+		status.raw = (pull() & 0xEF) | 0x20;
 		break;
-	case Pla:
+	case Instruction::pla:
 		zn(a = pull());
 		break;
-	case Bcs:
-		if (status.bits.carry) {
+	case Instruction::bcs:
+		if (status.carry) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Bcc:
-		if (!status.bits.carry) {
+	case Instruction::bcc:
+		if (!status.carry) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Beq:
-		if (status.bits.zero) {
+	case Instruction::beq:
+		if (status.zero) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Bne:
-		if (!status.bits.zero) {
+	case Instruction::bne:
+		if (!status.zero) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Bmi:
-		if (status.bits.negative) {
+	case Instruction::bmi:
+		if (status.negative) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Bpl:
-		if (!status.bits.negative) {
+	case Instruction::bpl:
+		if (!status.negative) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Bvs:
-		if (status.bits.overflow) {
+	case Instruction::bvs:
+		if (status.overflow) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Bvc:
-		if (!status.bits.overflow) {
+	case Instruction::bvc:
+		if (!status.overflow) {
 			program_counter = addr;
 			jumped = true;
 		}
 		break;
-	case Lda:
+	case Instruction::lda:
 		zn(a = memory.read(addr));
 		break;
-	case Ldx:
+	case Instruction::ldx:
 		zn(x = memory.read(addr));
 		break;
-	case Ldy:
+	case Instruction::ldy:
 		zn(y = memory.read(addr));
 		break;
-	case Sta:
+	case Instruction::sta:
 		memory.write(addr, a);
 		break;
-	case Stx:
+	case Instruction::stx:
 		memory.write(addr, x);
 		break;
-	case Sty:
+	case Instruction::sty:
 		memory.write(addr, y);
 		break;
-	case Bit: 
+	case Instruction::bit:
 	{
 		auto m = memory.read(addr);
-		status.bits.zero = (a & m) == 0;
-		status.bits.overflow = (m >> 6) & 1;
-		status.bits.negative = (m >> 7) & 1;
+		status.zero = (a & m) == 0;
+		status.overflow = (m >> 6) & 1;
+		status.negative = (m >> 7) & 1;
 		break;
 	}
-	case Cmp:
+	case Instruction::cmp:
 	{
 		auto m = memory.read(addr);
-		status.bits.carry = a >= m;
-		status.bits.zero = a == m;
-		status.bits.negative = ((a - m) >> 7) & 1;
+		status.carry = a >= m;
+		status.zero = a == m;
+		status.negative = ((a - m) >> 7) & 1;
 		break;
 	}
-	case Cpx:
+	case Instruction::cpx:
 	{
 		auto m = memory.read(addr);
-		status.bits.carry = x >= m;
-		status.bits.zero = x == m;
-		status.bits.negative = ((x - m) >> 7) & 1;
+		status.carry = x >= m;
+		status.zero = x == m;
+		status.negative = ((x - m) >> 7) & 1;
 		break;
 	}
-	case Cpy: 
+	case Instruction::cpy:
 	{
 		auto m = memory.read(addr);
-		status.bits.carry = y >= m;
-		status.bits.zero = y == m;
-		status.bits.negative = ((y - m) >> 7) & 1;
+		status.carry = y >= m;
+		status.zero = y == m;
+		status.negative = ((y - m) >> 7) & 1;
 		break;
 	}
-	case And:
+	case Instruction::and_:
 		zn(a &= memory.read(addr));
 		break;
-	case Ora:
+	case Instruction::ora:
 		zn(a |= memory.read(addr));
 		break;
-	case Eor:
+	case Instruction::eor:
 		zn(a ^= memory.read(addr));
 		break;
-	case Asl:
-		status.bits.carry = memory.read(addr) & bit(7) ? 1 : 0;
+	case Instruction::asl:
+		status.carry = memory.read(addr) & BIT(7) ? 1 : 0;
 		memory.write(addr, memory.read(addr) << 1);
 		zn(memory.read(addr));
 		break;
-	case Lsr:
-		status.bits.carry = memory.read(addr) & bit(0) ? 1 : 0;
+	case Instruction::lsr:
+		status.carry = memory.read(addr) & BIT(0) ? 1 : 0;
 		memory.write(addr, memory.read(addr) >> 1);
 		zn(memory.read(addr));
 		break;
-	case Rol:
+	case Instruction::rol:
 	{
-		auto old_carry = status.bits.carry;
-		status.bits.carry = memory.read(addr) & bit(7) ? 1 : 0;
+		auto old_carry = status.carry;
+		status.carry = memory.read(addr) & BIT(7) ? 1 : 0;
 		memory.write(addr, memory.read(addr) << 1 | old_carry);
 		zn(memory.read(addr));
 		break;
 	}
-	case Ror:
+	case Instruction::ror:
 	{
-		auto old_carry = status.bits.carry;
-		status.bits.carry = memory.read(addr) & bit(0) ? 1 : 0;
+		auto old_carry = status.carry;
+		status.carry = memory.read(addr) & BIT(0) ? 1 : 0;
 		memory.write(addr, memory.read(addr) >> 1 | old_carry << 7);
 		zn(memory.read(addr));
 		break;
 	}
-	case Adc:
+	case Instruction::adc:
 	{
 		auto old_a = a;
-		zn(a += memory.read(addr) + status.bits.carry);
-		status.bits.carry = old_a + memory.read(addr) + status.bits.carry > 0xFF;
-		status.bits.overflow = !((old_a ^ memory.read(addr)) & bit(7)) && ((old_a ^ a) & bit(7));
+		zn(a += memory.read(addr) + status.carry);
+		status.carry = old_a + memory.read(addr) + status.carry > 0xFF;
+		status.overflow = !((old_a ^ memory.read(addr)) & BIT(7)) && ((old_a ^ a) & BIT(7));
 		break;
 	}
-	case Sbc:
+	case Instruction::sbc:
 	{
 		auto old_a = a;
-		zn(a -= memory.read(addr) + !status.bits.carry);
-		status.bits.carry = old_a - memory.read(addr) - !status.bits.carry >= 0x00;
-		status.bits.overflow = (old_a ^ memory.read(addr)) & bit(7) && ((old_a ^ a) & bit(7));
+		zn(a -= memory.read(addr) + !status.carry);
+		status.carry = old_a - memory.read(addr) - !status.carry >= 0x00;
+		status.overflow = (old_a ^ memory.read(addr)) & BIT(7) && ((old_a ^ a) & BIT(7));
 		break;
 	}
-	case Jmp:
+	case Instruction::jmp:
 		program_counter = addr;
 		jumped = true;
 		break;
-	case Jsr:
+	case Instruction::jsr:
 		push_addr(program_counter + 2);
 		program_counter = addr;
 		jumped = true;
 		break;
-	case Rts:
+	case Instruction::rts:
 		program_counter = pull_addr() + 1;
 		jumped = true;
 		break;
-	case Brk:
+	case Instruction::brk:
 		program_counter++;
 		push_addr(program_counter);
-		push(status.raw | bit(4) | bit(5));
-		status.bits.break_ = 1;
-		program_counter = read_addr_from_mem(IrqBrkVecAddr);
+		push(status.raw | BIT(4) | BIT(5));
+		status.break_ = 1;
+		program_counter = read_addr_from_mem(irq_vec_addr);
 		jumped = true;
 		break;
-	case Rti:
-		status.raw = pull() & 0xEF | 0x20;
+	case Instruction::rti:
+		status.raw = (pull() & 0xEF) | 0x20;
 		program_counter = pull_addr();
 		jumped = true;
 		break;
@@ -477,174 +513,174 @@ void Cpu::exec_instr(Instruction instr, ExtendedAddr addr)
 Cpu::Op Cpu::get_op(uint8_t opcode)
 {
 	switch (opcode) {
-	case 0x00: return Op{ Brk, Implied, 7, Penalty::None };
-	case 0x01: return Op{ Ora, IndirectX, 6, Penalty::None };
-	case 0x05: return Op{ Ora, ZeroPage, 3, Penalty::None };
-	case 0x06: return Op{ Asl, ZeroPage, 5, Penalty::None };
-	case 0x08: return Op{ Php, Implied, 3, Penalty::None };
-	case 0x09: return Op{ Ora, Immediate, 2, Penalty::None };
-	case 0x0A: return Op{ Asl, Accumulator, 2, Penalty::None };
-	case 0x0D: return Op{ Ora, Absolute, 4, Penalty::None };
-	case 0x0E: return Op{ Asl, Absolute, 6, Penalty::None };
+	case 0x00: return Op{ Instruction::brk, Mode::implied, 7, Penalty::none };
+	case 0x01: return Op{ Instruction::ora, Mode::indirect_x, 6, Penalty::none };
+	case 0x05: return Op{ Instruction::ora, Mode::zero_page, 3, Penalty::none };
+	case 0x06: return Op{ Instruction::asl, Mode::zero_page, 5, Penalty::none };
+	case 0x08: return Op{ Instruction::php, Mode::implied, 3, Penalty::none };
+	case 0x09: return Op{ Instruction::ora, Mode::immediate, 2, Penalty::none };
+	case 0x0A: return Op{ Instruction::asl, Mode::accumulator, 2, Penalty::none };
+	case 0x0D: return Op{ Instruction::ora, Mode::absolute, 4, Penalty::none };
+	case 0x0E: return Op{ Instruction::asl, Mode::absolute, 6, Penalty::none };
 
-	case 0x10: return Op{ Bpl, Relative, 2, Penalty::Branch };
-	case 0x11: return Op{ Ora, IndirectY, 5, Penalty::PageCross };
-	case 0x15: return Op{ Ora, ZeroPageX, 4, Penalty::None };
-	case 0x16: return Op{ Asl, ZeroPageX, 6, Penalty::None };
-	case 0x18: return Op{ Clc, Implied, 2, Penalty::None };
-	case 0x19: return Op{ Ora, AbsoluteY, 4, Penalty::PageCross };
-	case 0x1D: return Op{ Ora, AbsoluteX, 4, Penalty::PageCross };
-	case 0x1E: return Op{ Asl, AbsoluteX, 7, Penalty::None };
+	case 0x10: return Op{ Instruction::bpl, Mode::relative, 2, Penalty::branch };
+	case 0x11: return Op{ Instruction::ora, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x15: return Op{ Instruction::ora, Mode::zero_page_x, 4, Penalty::none };
+	case 0x16: return Op{ Instruction::asl, Mode::zero_page_x, 6, Penalty::none };
+	case 0x18: return Op{ Instruction::clc, Mode::implied, 2, Penalty::none };
+	case 0x19: return Op{ Instruction::ora, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x1D: return Op{ Instruction::ora, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0x1E: return Op{ Instruction::asl, Mode::absolute_x, 7, Penalty::none };
 
-	case 0x20: return Op{ Jsr, Absolute, 6, Penalty::None };
-	case 0x21: return Op{ And, IndirectX, 6, Penalty::None };
-	case 0x24: return Op{ Bit, ZeroPage, 3, Penalty::None };
-	case 0x25: return Op{ And, ZeroPage, 3, Penalty::None };
-	case 0x26: return Op{ Rol, ZeroPage, 5, Penalty::None };
-	case 0x28: return Op{ Plp, Implied, 4, Penalty::None };
-	case 0x29: return Op{ And, Immediate, 2, Penalty::None };
-	case 0x2A: return Op{ Rol, Accumulator, 2, Penalty::None };
-	case 0x2C: return Op{ Bit, Absolute, 4, Penalty::None };
-	case 0x2D: return Op{ And, Absolute, 4, Penalty::None };
-	case 0x2E: return Op{ Rol, Absolute, 6, Penalty::None };
+	case 0x20: return Op{ Instruction::jsr, Mode::absolute, 6, Penalty::none };
+	case 0x21: return Op{ Instruction::and_, Mode::indirect_x, 6, Penalty::none };
+	case 0x24: return Op{ Instruction::bit, Mode::zero_page, 3, Penalty::none };
+	case 0x25: return Op{ Instruction::and_, Mode::zero_page, 3, Penalty::none };
+	case 0x26: return Op{ Instruction::rol, Mode::zero_page, 5, Penalty::none };
+	case 0x28: return Op{ Instruction::plp, Mode::implied, 4, Penalty::none };
+	case 0x29: return Op{ Instruction::and_, Mode::immediate, 2, Penalty::none };
+	case 0x2A: return Op{ Instruction::rol, Mode::accumulator, 2, Penalty::none };
+	case 0x2C: return Op{ Instruction::bit, Mode::absolute, 4, Penalty::none };
+	case 0x2D: return Op{ Instruction::and_, Mode::absolute, 4, Penalty::none };
+	case 0x2E: return Op{ Instruction::rol, Mode::absolute, 6, Penalty::none };
 
-	case 0x30: return Op{ Bmi, Relative, 2, Penalty::Branch };
-	case 0x31: return Op{ And, IndirectY, 5, Penalty::PageCross };
-	case 0x35: return Op{ And, ZeroPageX, 4, Penalty::None };
-	case 0x36: return Op{ Rol, ZeroPageX, 6, Penalty::None };
-	case 0x38: return Op{ Sec, Implied, 2, Penalty::None };
-	case 0x39: return Op{ And, AbsoluteY, 4, Penalty::PageCross };
-	case 0x3D: return Op{ And, AbsoluteX, 4, Penalty::PageCross };
-	case 0x3E: return Op{ Rol, AbsoluteX, 7, Penalty::None };
+	case 0x30: return Op{ Instruction::bmi, Mode::relative, 2, Penalty::branch };
+	case 0x31: return Op{ Instruction::and_, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x35: return Op{ Instruction::and_, Mode::zero_page_x, 4, Penalty::none };
+	case 0x36: return Op{ Instruction::rol, Mode::zero_page_x, 6, Penalty::none };
+	case 0x38: return Op{ Instruction::sec, Mode::implied, 2, Penalty::none };
+	case 0x39: return Op{ Instruction::and_, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x3D: return Op{ Instruction::and_, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0x3E: return Op{ Instruction::rol, Mode::absolute_x, 7, Penalty::none };
 
-	case 0x40: return Op{ Rti, Implied, 6, Penalty::None };
-	case 0x41: return Op{ Eor, IndirectX, 6, Penalty::None };
-	case 0x45: return Op{ Eor, ZeroPage, 3, Penalty::None };
-	case 0x46: return Op{ Lsr, ZeroPage, 5, Penalty::None };
-	case 0x48: return Op{ Pha, Implied, 3, Penalty::None };
-	case 0x49: return Op{ Eor, Immediate, 2, Penalty::None };
-	case 0x4A: return Op{ Lsr, Accumulator, 2, Penalty::None };
-	case 0x4C: return Op{ Jmp, Absolute, 3, Penalty::None };
-	case 0x4D: return Op{ Eor, Absolute, 4, Penalty::None };
-	case 0x4E: return Op{ Lsr, Absolute, 6, Penalty::None };
+	case 0x40: return Op{ Instruction::rti, Mode::implied, 6, Penalty::none };
+	case 0x41: return Op{ Instruction::eor, Mode::indirect_x, 6, Penalty::none };
+	case 0x45: return Op{ Instruction::eor, Mode::zero_page, 3, Penalty::none };
+	case 0x46: return Op{ Instruction::lsr, Mode::zero_page, 5, Penalty::none };
+	case 0x48: return Op{ Instruction::pha, Mode::implied, 3, Penalty::none };
+	case 0x49: return Op{ Instruction::eor, Mode::immediate, 2, Penalty::none };
+	case 0x4A: return Op{ Instruction::lsr, Mode::accumulator, 2, Penalty::none };
+	case 0x4C: return Op{ Instruction::jmp, Mode::absolute, 3, Penalty::none };
+	case 0x4D: return Op{ Instruction::eor, Mode::absolute, 4, Penalty::none };
+	case 0x4E: return Op{ Instruction::lsr, Mode::absolute, 6, Penalty::none };
 
-	case 0x50: return Op{ Bvc, Relative, 2, Penalty::Branch };
-	case 0x51: return Op{ Eor, IndirectY, 5, Penalty::PageCross };
-	case 0x55: return Op{ Eor, ZeroPageX, 4, Penalty::None };
-	case 0x56: return Op{ Lsr, ZeroPageX, 6, Penalty::None };
-	case 0x58: return Op{ Cli, Implied, 2, Penalty::None };
-	case 0x59: return Op{ Eor, AbsoluteY, 4, Penalty::PageCross };
-	case 0x5D: return Op{ Eor, AbsoluteX, 4, Penalty::PageCross };
-	case 0x5E: return Op{ Lsr, AbsoluteX, 7, Penalty::None };
+	case 0x50: return Op{ Instruction::bvc, Mode::relative, 2, Penalty::branch };
+	case 0x51: return Op{ Instruction::eor, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x55: return Op{ Instruction::eor, Mode::zero_page_x, 4, Penalty::none };
+	case 0x56: return Op{ Instruction::lsr, Mode::zero_page_x, 6, Penalty::none };
+	case 0x58: return Op{ Instruction::cli, Mode::implied, 2, Penalty::none };
+	case 0x59: return Op{ Instruction::eor, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x5D: return Op{ Instruction::eor, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0x5E: return Op{ Instruction::lsr, Mode::absolute_x, 7, Penalty::none };
 
-	case 0x60: return Op{ Rts, Implied, 6, Penalty::None };
-	case 0x61: return Op{ Adc, IndirectX, 6, Penalty::None };
-	case 0x65: return Op{ Adc, ZeroPage, 3, Penalty::None };
-	case 0x66: return Op{ Ror, ZeroPage, 5, Penalty::None };
-	case 0x68: return Op{ Pla, Implied, 4, Penalty::None };
-	case 0x69: return Op{ Adc, Immediate, 2, Penalty::None };
-	case 0x6A: return Op{ Ror, Accumulator, 2, Penalty::None };
-	case 0x6C: return Op{ Jmp, Indirect, 5, Penalty::None };
-	case 0x6D: return Op{ Adc, Absolute, 4, Penalty::None };
-	case 0x6E: return Op{ Ror, Absolute, 6, Penalty::None };
+	case 0x60: return Op{ Instruction::rts, Mode::implied, 6, Penalty::none };
+	case 0x61: return Op{ Instruction::adc, Mode::indirect_x, 6, Penalty::none };
+	case 0x65: return Op{ Instruction::adc, Mode::zero_page, 3, Penalty::none };
+	case 0x66: return Op{ Instruction::ror, Mode::zero_page, 5, Penalty::none };
+	case 0x68: return Op{ Instruction::pla, Mode::implied, 4, Penalty::none };
+	case 0x69: return Op{ Instruction::adc, Mode::immediate, 2, Penalty::none };
+	case 0x6A: return Op{ Instruction::ror, Mode::accumulator, 2, Penalty::none };
+	case 0x6C: return Op{ Instruction::jmp, Mode::indirect, 5, Penalty::none };
+	case 0x6D: return Op{ Instruction::adc, Mode::absolute, 4, Penalty::none };
+	case 0x6E: return Op{ Instruction::ror, Mode::absolute, 6, Penalty::none };
 
-	case 0x70: return Op{ Bvs, Relative, 2, Penalty::Branch };
-	case 0x71: return Op{ Adc, IndirectY, 5, Penalty::PageCross };
-	case 0x75: return Op{ Adc, ZeroPageX, 4, Penalty::None };
-	case 0x76: return Op{ Ror, ZeroPageX, 6, Penalty::None };
-	case 0x78: return Op{ Sei, Implied, 2, Penalty::None };
-	case 0x79: return Op{ Adc, AbsoluteY, 4, Penalty::PageCross };
-	case 0x7D: return Op{ Adc, AbsoluteX, 4, Penalty::PageCross };
-	case 0x7E: return Op{ Ror, AbsoluteX, 7, Penalty::None };
+	case 0x70: return Op{ Instruction::bvs, Mode::relative, 2, Penalty::branch };
+	case 0x71: return Op{ Instruction::adc, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x75: return Op{ Instruction::adc, Mode::zero_page_x, 4, Penalty::none };
+	case 0x76: return Op{ Instruction::ror, Mode::zero_page_x, 6, Penalty::none };
+	case 0x78: return Op{ Instruction::sei, Mode::implied, 2, Penalty::none };
+	case 0x79: return Op{ Instruction::adc, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x7D: return Op{ Instruction::adc, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0x7E: return Op{ Instruction::ror, Mode::absolute_x, 7, Penalty::none };
 
-	case 0x81: return Op{ Sta, IndirectX, 6, Penalty::None };
-	case 0x84: return Op{ Sty, ZeroPage, 3, Penalty::None };
-	case 0x85: return Op{ Sta, ZeroPage, 3, Penalty::None };
-	case 0x86: return Op{ Stx, ZeroPage, 3, Penalty::None };
-	case 0x88: return Op{ Dey, Implied, 2, Penalty::None };
-	case 0x8A: return Op{ Txa, Implied, 2, Penalty::None };
-	case 0x8C: return Op{ Sty, Absolute, 4, Penalty::None };
-	case 0x8D: return Op{ Sta, Absolute, 4, Penalty::None };
-	case 0x8E: return Op{ Stx, Absolute, 4, Penalty::None };
+	case 0x81: return Op{ Instruction::sta, Mode::indirect_x, 6, Penalty::none };
+	case 0x84: return Op{ Instruction::sty, Mode::zero_page, 3, Penalty::none };
+	case 0x85: return Op{ Instruction::sta, Mode::zero_page, 3, Penalty::none };
+	case 0x86: return Op{ Instruction::stx, Mode::zero_page, 3, Penalty::none };
+	case 0x88: return Op{ Instruction::dey, Mode::implied, 2, Penalty::none };
+	case 0x8A: return Op{ Instruction::txa, Mode::implied, 2, Penalty::none };
+	case 0x8C: return Op{ Instruction::sty, Mode::absolute, 4, Penalty::none };
+	case 0x8D: return Op{ Instruction::sta, Mode::absolute, 4, Penalty::none };
+	case 0x8E: return Op{ Instruction::stx, Mode::absolute, 4, Penalty::none };
 
-	case 0x90: return Op{ Bcc, Relative, 2, Penalty::Branch };
-	case 0x91: return Op{ Sta, IndirectY, 6, Penalty::None };
-	case 0x94: return Op{ Sty, ZeroPageX, 4, Penalty::None };
-	case 0x95: return Op{ Sta, ZeroPageX, 4, Penalty::None };
-	case 0x96: return Op{ Stx, ZeroPageY, 4, Penalty::None };
-	case 0x98: return Op{ Tya, Implied, 2, Penalty::None };
-	case 0x99: return Op{ Sta, AbsoluteY, 5, Penalty::None };
-	case 0x9A: return Op{ Txs, Implied, 2, Penalty::None };
-	case 0x9D: return Op{ Sta, AbsoluteX, 5, Penalty::None };
+	case 0x90: return Op{ Instruction::bcc, Mode::relative, 2, Penalty::branch };
+	case 0x91: return Op{ Instruction::sta, Mode::indirect_y, 6, Penalty::none };
+	case 0x94: return Op{ Instruction::sty, Mode::zero_page_x, 4, Penalty::none };
+	case 0x95: return Op{ Instruction::sta, Mode::zero_page_x, 4, Penalty::none };
+	case 0x96: return Op{ Instruction::stx, Mode::zero_page_y, 4, Penalty::none };
+	case 0x98: return Op{ Instruction::tya, Mode::implied, 2, Penalty::none };
+	case 0x99: return Op{ Instruction::sta, Mode::absolute_y, 5, Penalty::none };
+	case 0x9A: return Op{ Instruction::txs, Mode::implied, 2, Penalty::none };
+	case 0x9D: return Op{ Instruction::sta, Mode::absolute_x, 5, Penalty::none };
 
-	case 0xA0: return Op{ Ldy, Immediate, 2, Penalty::None };
-	case 0xA1: return Op{ Lda, IndirectX, 6, Penalty::None };
-	case 0xA2: return Op{ Ldx, Immediate, 2, Penalty::None };
-	case 0xA4: return Op{ Ldy, ZeroPage, 3, Penalty::None };
-	case 0xA5: return Op{ Lda, ZeroPage, 3, Penalty::None };
-	case 0xA6: return Op{ Ldx, ZeroPage, 3, Penalty::None };
-	case 0xA8: return Op{ Tay, Implied, 2, Penalty::None };
-	case 0xA9: return Op{ Lda, Immediate, 2, Penalty::None };
-	case 0xAA: return Op{ Tax, Implied, 2, Penalty::None };
-	case 0xAC: return Op{ Ldy, Absolute, 4, Penalty::None };
-	case 0xAD: return Op{ Lda, Absolute, 4, Penalty::None };
-	case 0xAE: return Op{ Ldx, Absolute, 4, Penalty::None };
+	case 0xA0: return Op{ Instruction::ldy, Mode::immediate, 2, Penalty::none };
+	case 0xA1: return Op{ Instruction::lda, Mode::indirect_x, 6, Penalty::none };
+	case 0xA2: return Op{ Instruction::ldx, Mode::immediate, 2, Penalty::none };
+	case 0xA4: return Op{ Instruction::ldy, Mode::zero_page, 3, Penalty::none };
+	case 0xA5: return Op{ Instruction::lda, Mode::zero_page, 3, Penalty::none };
+	case 0xA6: return Op{ Instruction::ldx, Mode::zero_page, 3, Penalty::none };
+	case 0xA8: return Op{ Instruction::tay, Mode::implied, 2, Penalty::none };
+	case 0xA9: return Op{ Instruction::lda, Mode::immediate, 2, Penalty::none };
+	case 0xAA: return Op{ Instruction::tax, Mode::implied, 2, Penalty::none };
+	case 0xAC: return Op{ Instruction::ldy, Mode::absolute, 4, Penalty::none };
+	case 0xAD: return Op{ Instruction::lda, Mode::absolute, 4, Penalty::none };
+	case 0xAE: return Op{ Instruction::ldx, Mode::absolute, 4, Penalty::none };
 
-	case 0xB0: return Op{ Bcs, Relative, 2, Penalty::Branch };
-	case 0xB1: return Op{ Lda, IndirectY, 5, Penalty::PageCross };
-	case 0xB4: return Op{ Ldy, ZeroPageX, 4, Penalty::None };
-	case 0xB5: return Op{ Lda, ZeroPageX, 4, Penalty::None };
-	case 0xB6: return Op{ Ldx, ZeroPageY, 4, Penalty::None };
-	case 0xB8: return Op{ Clv, Implied, 2, Penalty::None };
-	case 0xB9: return Op{ Lda, AbsoluteY, 4, Penalty::PageCross };
-	case 0xBA: return Op{ Tsx, Implied, 2, Penalty::None };
-	case 0xBC: return Op{ Ldy, AbsoluteX, 4, Penalty::PageCross };
-	case 0xBD: return Op{ Lda, AbsoluteX, 4, Penalty::PageCross };
-	case 0xBE: return Op{ Ldx, AbsoluteY, 4, Penalty::PageCross };
+	case 0xB0: return Op{ Instruction::bcs, Mode::relative, 2, Penalty::branch };
+	case 0xB1: return Op{ Instruction::lda, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0xB4: return Op{ Instruction::ldy, Mode::zero_page_x, 4, Penalty::none };
+	case 0xB5: return Op{ Instruction::lda, Mode::zero_page_x, 4, Penalty::none };
+	case 0xB6: return Op{ Instruction::ldx, Mode::zero_page_y, 4, Penalty::none };
+	case 0xB8: return Op{ Instruction::clv, Mode::implied, 2, Penalty::none };
+	case 0xB9: return Op{ Instruction::lda, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0xBA: return Op{ Instruction::tsx, Mode::implied, 2, Penalty::none };
+	case 0xBC: return Op{ Instruction::ldy, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0xBD: return Op{ Instruction::lda, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0xBE: return Op{ Instruction::ldx, Mode::absolute_y, 4, Penalty::page_cross };
 
-	case 0xC0: return Op{ Cpy, Immediate, 2, Penalty::None };
-	case 0xC1: return Op{ Cmp, IndirectX, 6, Penalty::None };
-	case 0xC4: return Op{ Cpy, ZeroPage, 3, Penalty::None };
-	case 0xC5: return Op{ Cmp, ZeroPage, 3, Penalty::None };
-	case 0xC6: return Op{ Dec, ZeroPage, 5, Penalty::None };
-	case 0xC8: return Op{ Iny, Implied, 2, Penalty::None };
-	case 0xC9: return Op{ Cmp, Immediate, 2, Penalty::None };
-	case 0xCA: return Op{ Dex, Implied, 2, Penalty::None };
-	case 0xCC: return Op{ Cpy, Absolute, 4, Penalty::None };
-	case 0xCD: return Op{ Cmp, Absolute, 4, Penalty::None };
-	case 0xCE: return Op{ Dec, Absolute, 6, Penalty::None };
+	case 0xC0: return Op{ Instruction::cpy, Mode::immediate, 2, Penalty::none };
+	case 0xC1: return Op{ Instruction::cmp, Mode::indirect_x, 6, Penalty::none };
+	case 0xC4: return Op{ Instruction::cpy, Mode::zero_page, 3, Penalty::none };
+	case 0xC5: return Op{ Instruction::cmp, Mode::zero_page, 3, Penalty::none };
+	case 0xC6: return Op{ Instruction::dec, Mode::zero_page, 5, Penalty::none };
+	case 0xC8: return Op{ Instruction::iny, Mode::implied, 2, Penalty::none };
+	case 0xC9: return Op{ Instruction::cmp, Mode::immediate, 2, Penalty::none };
+	case 0xCA: return Op{ Instruction::dex, Mode::implied, 2, Penalty::none };
+	case 0xCC: return Op{ Instruction::cpy, Mode::absolute, 4, Penalty::none };
+	case 0xCD: return Op{ Instruction::cmp, Mode::absolute, 4, Penalty::none };
+	case 0xCE: return Op{ Instruction::dec, Mode::absolute, 6, Penalty::none };
 
-	case 0xD0: return Op{ Bne, Relative, 2, Penalty::Branch };
-	case 0xD1: return Op{ Cmp, IndirectY, 5, Penalty::PageCross };
-	case 0xD5: return Op{ Cmp, ZeroPageX, 4, Penalty::None };
-	case 0xD6: return Op{ Dec, ZeroPageX, 6, Penalty::None };
-	case 0xD8: return Op{ Cld, Implied, 2, Penalty::None };
-	case 0xD9: return Op{ Cmp, AbsoluteY, 4, Penalty::PageCross };
-	case 0xDD: return Op{ Cmp, AbsoluteX, 4, Penalty::PageCross };
-	case 0xDE: return Op{ Dec, AbsoluteX, 7, Penalty::None };
+	case 0xD0: return Op{ Instruction::bne, Mode::relative, 2, Penalty::branch };
+	case 0xD1: return Op{ Instruction::cmp, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0xD5: return Op{ Instruction::cmp, Mode::zero_page_x, 4, Penalty::none };
+	case 0xD6: return Op{ Instruction::dec, Mode::zero_page_x, 6, Penalty::none };
+	case 0xD8: return Op{ Instruction::cld, Mode::implied, 2, Penalty::none };
+	case 0xD9: return Op{ Instruction::cmp, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0xDD: return Op{ Instruction::cmp, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0xDE: return Op{ Instruction::dec, Mode::absolute_x, 7, Penalty::none };
 
-	case 0xE0: return Op{ Cpx, Immediate, 2, Penalty::None };
-	case 0xE1: return Op{ Sbc, IndirectX, 6, Penalty::None };
-	case 0xE4: return Op{ Cpx, ZeroPage, 3, Penalty::None };
-	case 0xE5: return Op{ Sbc, ZeroPage, 3, Penalty::None };
-	case 0xE6: return Op{ Inc, ZeroPage, 5, Penalty::None };
-	case 0xE8: return Op{ Inx, Implied, 2, Penalty::None };
-	case 0xE9: return Op{ Sbc, Immediate, 2, Penalty::None };
-	case 0xEA: return Op{ Nop, Implied, 2, Penalty::None };
-	case 0xEC: return Op{ Cpx, Absolute, 4, Penalty::None };
-	case 0xED: return Op{ Sbc, Absolute, 4, Penalty::None };
-	case 0xEE: return Op{ Inc, Absolute, 6, Penalty::None };
+	case 0xE0: return Op{ Instruction::cpx, Mode::immediate, 2, Penalty::none };
+	case 0xE1: return Op{ Instruction::sbc, Mode::indirect_x, 6, Penalty::none };
+	case 0xE4: return Op{ Instruction::cpx, Mode::zero_page, 3, Penalty::none };
+	case 0xE5: return Op{ Instruction::sbc, Mode::zero_page, 3, Penalty::none };
+	case 0xE6: return Op{ Instruction::inc, Mode::zero_page, 5, Penalty::none };
+	case 0xE8: return Op{ Instruction::inx, Mode::implied, 2, Penalty::none };
+	case 0xE9: return Op{ Instruction::sbc, Mode::immediate, 2, Penalty::none };
+	case 0xEA: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0xEC: return Op{ Instruction::cpx, Mode::absolute, 4, Penalty::none };
+	case 0xED: return Op{ Instruction::sbc, Mode::absolute, 4, Penalty::none };
+	case 0xEE: return Op{ Instruction::inc, Mode::absolute, 6, Penalty::none };
 
-	case 0xF0: return Op{ Beq, Relative, 2, Penalty::Branch };
-	case 0xF1: return Op{ Sbc, IndirectY, 5, Penalty::PageCross };
-	case 0xF5: return Op{ Sbc, ZeroPageX, 4, Penalty::None };
-	case 0xF6: return Op{ Inc, ZeroPageX, 6, Penalty::None };
-	case 0xF8: return Op{ Sed, Implied, 2, Penalty::None };
-	case 0xF9: return Op{ Sbc, AbsoluteY, 4, Penalty::PageCross };
-	case 0xFD: return Op{ Sbc, AbsoluteX, 4, Penalty::PageCross };
-	case 0xFE: return Op{ Inc, AbsoluteX, 7, Penalty::None };
+	case 0xF0: return Op{ Instruction::beq, Mode::relative, 2, Penalty::branch };
+	case 0xF1: return Op{ Instruction::sbc, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0xF5: return Op{ Instruction::sbc, Mode::zero_page_x, 4, Penalty::none };
+	case 0xF6: return Op{ Instruction::inc, Mode::zero_page_x, 6, Penalty::none };
+	case 0xF8: return Op{ Instruction::sed, Mode::implied, 2, Penalty::none };
+	case 0xF9: return Op{ Instruction::sbc, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0xFD: return Op{ Instruction::sbc, Mode::absolute_x, 4, Penalty::page_cross };
+	case 0xFE: return Op{ Instruction::inc, Mode::absolute_x, 7, Penalty::none };
 
-	default: 
+	default:
 	{
 		std::ostringstream ss;
 		ss << "invalid opcode " << std::hex << (int)opcode;
@@ -657,42 +693,40 @@ unsigned Cpu::step()
 {
 	if (cycle_stall) {
 		cycle_stall--;
-		cycle = (cycle + 1) % CpuCycleWraparound; // TODO: 1 or 3?
+		cycle = (cycle + 1) % cpu_cycle_wraparound; // TODO: 1 or 3?
 		return 1;
 	}
 
 	auto start_cycle = cycle;
 
 	switch (interrupt) {
-	case Interrupt::Irq:
-		std::cerr << "irq\n";
-		do_int<Interrupt::Irq>();
+	case Interrupt::irq:
+		logger << "irq\n";
+		do_int(Interrupt::irq);
 		break;
-	case Interrupt::Nmi:
-		std::cerr << "nmi\n";
-		do_int<Interrupt::Nmi>();
+	case Interrupt::nmi:
+		logger << "nmi\n";
+		do_int(Interrupt::nmi);
+		break;
+	case Interrupt::none:
 		break;
 	}
 
 	unsigned penalty_sum = 0;
 
-	// auto [instr, mode, cycles] = get_op(memory.read(program_counter));
-	// auto [base_cycle, penalty] = cycles;
 	auto op = get_op(memory.read(program_counter));
-
-	auto old_pc = program_counter;
 
 	exec_instr(op.instr, get_addr(op.mode));
 
 	switch (op.penalty) {
-	case Penalty::Branch:
+	case Penalty::branch:
 		if (!jumped) { break; }
 		penalty_sum++;
-	case Penalty::PageCross:
+	case Penalty::page_cross:
 		if (page_crossed) {
 			penalty_sum++;
 		}
-	case Penalty::None:
+	case Penalty::none:
 		break;
 	}
 
@@ -700,11 +734,11 @@ unsigned Cpu::step()
 		program_counter += get_arg_size(op.mode) + 1;
 	}
 
-	cycle = (cycle + (op.base_cycle + penalty_sum) * 3) % CpuCycleWraparound;
+	cycle = (cycle + (op.base_cycle + penalty_sum) * 3) % cpu_cycle_wraparound;
 
 	auto cycle_diff = (int)cycle - (int)start_cycle;
 	if (cycle_diff < 0) {
-		cycle_diff += CpuCycleWraparound;
+		cycle_diff += cpu_cycle_wraparound;
 	}
 
 	return cycle_diff;
@@ -712,11 +746,11 @@ unsigned Cpu::step()
 
 void Cpu::reset()
 {
-	program_counter = read_addr_from_mem(ResetVecAddr);
-	std::clog << "pc=" << std::hex << program_counter << "\n";
+	program_counter = read_addr_from_mem(reset_vec_addr);
+	logger << "pc=" << std::hex << program_counter << "\n";
 }
 
-CpuSnapshot Cpu::take_snapshot()
+Cpu_snapshot Cpu::take_snapshot()
 {
 	auto opcode = memory.read(program_counter);
 	std::vector<uint8_t> instr{ opcode };
@@ -724,5 +758,5 @@ CpuSnapshot Cpu::take_snapshot()
 	for (unsigned i = 0; i < arg_size; i++) {
 		instr.push_back(memory.read(program_counter + 1 + i));
 	}
-	return CpuSnapshot{ program_counter, instr, a, x, y, status.raw, stack_ptr, cycle };
+	return Cpu_snapshot{ program_counter, instr, a, x, y, status.raw, stack_ptr, cycle };
 }

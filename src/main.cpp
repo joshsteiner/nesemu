@@ -1,11 +1,13 @@
 #include <iostream>
 
 #include "nesemu.h"
+#include "common.h"
 
 Cpu cpu;
 Ppu ppu;
 Memory memory;
 Screen screen;
+std::ostream& logger = std::clog;
 
 void run_loop(Console& console)
 {
@@ -21,7 +23,7 @@ void run_loop(Console& console)
 		//if (tick - prev_tick > 100) {
 		//printf("cpu cyc: %u, ppu cyc: %u, ppu scanline: %u\n", 
 		//	console.cpu.cycle, console.ppu.cycle, console.ppu.scan_line);
-		std::clog << cpu.take_snapshot().str() << '\n';
+		logger << cpu.take_snapshot().str() << '\n';
 		console.step();
 		screen.update();
 		//	prev_tick = tick;
@@ -31,26 +33,24 @@ void run_loop(Console& console)
 
 int main(int argc, char **argv)
 {
-	std::ios::sync_with_stdio(0);
-
 	Console console;
 
 	try {
 		if (argc < 2) {
-			std::cerr << "not enough arguments...\n";
+			logger << "not enough arguments...\n";
 			return EXIT_FAILURE;
 		}
 
 		console.load(argv[1]);
 		run_loop(console);
 	} catch (std::exception& e) {
-		std::cerr << e.what() << '\n';
+		logger << e.what() << '\n';
 		return EXIT_FAILURE;
 	} catch (std::string e) {
-		std::cerr << e << '\n';
+		logger << e << '\n';
 		return EXIT_FAILURE;
 	} catch (const char* e) {
-		std::cerr << e << '\n';
+		logger << e << '\n';
 		return EXIT_FAILURE;
 	} 
 

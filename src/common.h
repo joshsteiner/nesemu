@@ -1,23 +1,30 @@
 #ifndef NESEMU_COMMON_H
 #define NESEMU_COMMON_H
 
+#include <ostream>
+#include <iostream>
 #include <cstdint>
 
 #define FLAG_BYTE(FIELDS) \
-union { uint8_t raw; struct FIELDS bits; }
+	union { uint8_t raw; struct FIELDS; }
 
 #define BETWEEN(VAL, LBOUND, RBOUND) \
 	((VAL) >= (LBOUND) && (VAL) < (RBOUND))
 
-template <typename T>
-inline bool even(T x) { return x % 2 == 0; }
+#define BIT(N) (1 << (N))
 
 template <typename T>
-inline bool odd(T x) { return !even(x); }
-
-constexpr uint8_t bit(int n)
+inline bool even(T x)
 {
-	return 1 << n;
+	return x % 2 == 0;
 }
+
+template <typename T>
+inline bool odd(T x)
+{
+	return !even(x);
+}
+
+extern std::ostream& logger;
 
 #endif

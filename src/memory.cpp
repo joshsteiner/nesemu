@@ -4,11 +4,12 @@
 #include <cassert>
 #include <sstream>
 
-uint8_t& Memory::at(ExtendedAddr addr)
+uint8_t& Memory::at(Extended_addr addr)
 {
 	if (addr < 0) {
 		switch (addr) {
-		case ARegisterExtAddr: return cpu.a;
+		case a_register_ext_addr: 
+			return cpu.a;
 		}
 	} else if (BETWEEN(addr, 0x0000, 0x2000)) {
 		return ram.at(addr % 0x800);
@@ -22,12 +23,14 @@ uint8_t& Memory::at(ExtendedAddr addr)
 	} else if (BETWEEN(addr, 0x4020, 0x10000)) {
 		try {
 			switch (cart.rom.size() / 0x4000) {
-			case 1: return cart.rom.at(addr - 0xC000);
-			case 2: return cart.rom.at(addr - 0x8000);
+			case 1: 
+				return cart.rom.at(addr - 0xC000);
+			case 2: 
+				return cart.rom.at(addr - 0x8000);
 			}
 		} catch (std::exception& e) {
-			printf("in Memory::at(%x)\n", addr);
-			puts(e.what());
+			logger << "in Memory::at(" << std::hex << addr << "\n";
+			logger << e.what() << "\n";
 			exit(EXIT_FAILURE);
 		}
 
@@ -39,14 +42,14 @@ uint8_t& Memory::at(ExtendedAddr addr)
 	throw "invalid addr in Memory::at";
 }
 
-uint8_t Memory::read(ExtendedAddr addr)
+uint8_t Memory::read(Extended_addr addr)
 {
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
 		addr = (addr % 0x8) + 0x2000;
-		return ppu.readRegister(addr);
+		return ppu.read_register(addr);
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
 		if (addr == 0x4014) {
-			return ppu.readRegister(addr);
+			return ppu.read_register(addr);
 		}
 		return 0;
 	} else {
@@ -54,15 +57,15 @@ uint8_t Memory::read(ExtendedAddr addr)
 	}
 }
 
-void Memory::write(ExtendedAddr addr, uint8_t value)
+void Memory::write(Extended_addr addr, uint8_t value)
 {
-	std::clog << "in  Memory::write(" << std::hex << addr << "," << (int)value << ")\n";
+	logger << "in  Memory::write(" << std::hex << addr << "," << (int)value << ")\n";
 	if (BETWEEN(addr, 0x2000, 0x4000)) {
 		addr = (addr % 0x8) + 0x2000;
-		ppu.writeRegister(addr, value);
+		ppu.write_register(addr, value);
 	} else if (BETWEEN(addr, 0x4000, 0x4018)) {
 		if (addr == 0x4014) {
-			ppu.writeRegister(addr, value);
+			ppu.write_register(addr, value);
 		}
 	} else {
 		at(addr) = value;

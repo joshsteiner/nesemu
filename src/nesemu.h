@@ -11,7 +11,7 @@
 class Console
 {
 public:
-	auto step() -> void
+	void step()
 	{
 		auto cpu_cycles = cpu.step();
 		for (unsigned i = 0; i < cpu_cycles; i++) {
@@ -19,14 +19,16 @@ public:
 		}
 	}
 
-	auto load(std::string path) -> void
+	void load(std::string path)
 	{
 		std::ifstream file{ path, std::ios::binary };
-		if (!file.is_open()) { throw "file error"; }
+		if (!file.is_open()) { 
+			throw "file error"; 
+		}
 		auto cart = Cartridge::from_ines(file);
 		memory.connect(cart);
 		cpu.reset();
-		ppu.Reset();
+		ppu.reset();
 	}
 };
 

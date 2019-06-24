@@ -1,4 +1,5 @@
 #include "screen.h"
+#include "common.h"
 
 Screen::Screen()
 {
@@ -31,7 +32,7 @@ Color Screen::get(unsigned r, unsigned c)
 
 void Screen::set(unsigned r, unsigned c, Color value)
 {
-	std::clog << "set(r=" << std::dec << r << ",c=" << c << ",val=" << std::hex << value << ")\n";
+	logger << "set(r=" << std::dec << r << ",c=" << c << ",val=" << std::hex << value << ")\n";
 	auto pixels = static_cast<Color*>(surface->pixels);
 	pixels[r * surface->pitch / 4 + c] = value;
 }
