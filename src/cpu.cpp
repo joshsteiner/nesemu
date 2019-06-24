@@ -32,6 +32,23 @@ Cpu_snapshot::Cpu_snapshot(
 	, p(p) , sp(sp) , cyc(cyc)
 {}
 
+bool Cpu_snapshot::operator==(const Cpu_snapshot& other) const
+{
+	return pc == other.pc 
+		&& instr == other.instr
+		&& a == other.a
+		&& x == other.x
+		&& y == other.y
+		&& p == other.p
+		&& sp == other.sp
+		&& cyc == other.cyc;
+}
+
+bool Cpu_snapshot::operator!=(const Cpu_snapshot& other) const
+{
+	return !(*this == other);
+}
+
 std::string Cpu_snapshot::str() const
 {
 	std::ostringstream strm;

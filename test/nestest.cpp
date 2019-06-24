@@ -1,13 +1,10 @@
-#define BOOST_TEST_MODULE nestest
-#include <boost/test/unit_test.hpp>
-
 #include <sstream>
 #include <vector>
 #include <tuple>
 
-#include "../src/console/cpu.h"
-#include "../src/console/memory.h"
-#include "../src/console/cart.h"
+#include "../src/cpu.h"
+#include "../src/memory.h"
+#include "../src/cart.h"
 #include "../src/nesemu.h"
 #include "../src/screen.h"
 
@@ -15,9 +12,9 @@ Cpu cpu;
 Ppu ppu;
 Memory memory;
 Screen screen;
+std::ostream& logger = std::clog;
 
-
-auto parse_next_instr(std::ifstream& file) -> CpuSnapshot
+Cpu_snapshot parse_next_instr(std::ifstream& file)
 {
 	unsigned pc;
 	std::vector<uint8_t> instr;
@@ -29,7 +26,9 @@ auto parse_next_instr(std::ifstream& file) -> CpuSnapshot
 	for (;;) {
 		std::string s;
 		file >> s;
-		if (s.length() != 2) { break; }
+		if (s.length() != 2) { 
+			break; 
+		}
 		instr.push_back(std::stoi(s, nullptr, 16));
 	}
 
@@ -41,50 +40,62 @@ auto parse_next_instr(std::ifstream& file) -> CpuSnapshot
 	file.ignore(100, ':'); file >> std::dec >> cyc;
 	file.ignore(100, '\n');
 
-	return CpuSnapshot{ pc, instr, a, x, y, p, sp, cyc };
+	return Cpu_snapshot{ pc, instr, a, x, y, p, sp, cyc };
 }
 
-auto run_testrom(std::string rom_filename, std::string log_filename) -> void
+void run_testrom(const std::string& rom_filename, const std::string& log_filename)
 {
 	Console console;
 	console.load(rom_filename);
 
 	std::ifstream log_file{ log_filename };
-	if (!log_file.is_open()) { throw "log file failure"; }
+	if (!log_file.is_open()) { 
+		throw "log file failure"; 
+	}
 
-	/*cpu.program_counter = 0xC000;
+	cpu.program_counter = 0xC000;
 	cpu.status.raw = 0x24;
 	cpu.stack_ptr = 0xFD;
-	cpu.cycle = 0;*/
+	cpu.cycle = 0;
 
-	cpu.a = 0xA0;
+	/*cpu.a = 0xA0;
 	cpu.status.raw = 0x85;
 	cpu.stack_ptr = 0xFD;
 	cpu.cycle = 30;
-	ppu.cycle = 10;
+	ppu.cycle = 10;*/
 
 	for (;;) {
 		auto expected = parse_next_instr(log_file);
 		auto got = cpu.take_snapshot();
-		std::cout << str(expected) << '&';
-		std::cout << str(got) << '\n';
+		logger << expected.str() << "  &  " << got.str() << '\n';
 		if (expected != got) {
 			std::ostringstream fmt_err;
-			fmt_err
-				<< "expected: " << str(expected) << ';'
-				<< "got: " << str(got);
-			BOOST_FAIL(fmt_err.str());
+			std::cerr
+				<< std::endl
+				<< "expected: " << expected.str() << std::endl
+				<< "got: " << got.str()
+				<< std::endl;
+			exit(-2);
 		}
 		console.step();
 	}
 }
 
-BOOST_AUTO_TEST_CASE(nestest)
+int main(int argc, char** argv)
 {
-	//run_testrom("test/nestest.nes", "test/nestest.log");
+	if (argc != 3) {
+		std::cerr << "USAGE: nestest nestest.nes nestest.log" << std::endl;
+		std::exit(-1);
+	}
+
+	try {
+		run_testrom(std::string{ argv[1] }, std::string{ argv[2] });
+	} catch (std::string& s) {
+		std::cerr << s << std::endl;
+	} catch (const char* s) {
+		std::cerr << s << std::endl;
+	}
+
+	return 0;
 }
 
-BOOST_AUTO_TEST_CASE(color_test)
-{
-	run_testrom("test/color_test.nes", "test/color_test.log");
-}

@@ -12,34 +12,24 @@
 
 using Color = uint32_t;
 
-const size_t DisplayWidth  = 256;
-const size_t DisplayHeight = 240;
+const size_t display_width  = 256;
+const size_t display_height = 240;
 
-const std::string WindowTitle = "nesemu";
+const std::string window_title = "nesemu";
 
-inline void sdl_assert(bool cond)
-{
-	if (!cond) {
-		std::ostringstream err{ "SDL Error: " };
-		err << SDL_GetError();
-		throw err.str();
-	}
-}
-
-class Screen
-{
-private:
-	SDL_Window* window;
-	SDL_Surface* surface;
-
+class Screen {
 public:
 	Screen();
 	~Screen();
 
-public:
 	Color get(unsigned r, unsigned c);
 	void set(unsigned r, unsigned c, Color value);
 	void update();
+
+private:
+	SDL_Window* window;
+	SDL_Surface* surface;
+
 };
 
 extern Screen screen;

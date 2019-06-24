@@ -39,6 +39,8 @@ private:
 	});
 
 public:
+	unsigned cycle = 0;
+
 	Ppu();
 
 	void reset();
@@ -49,7 +51,6 @@ public:
 	void write(uint16_t addr, uint8_t value);
 
 private:
-	unsigned cycle = 0;
 	unsigned scan_line = 0;
 	unsigned frame = 0;
 

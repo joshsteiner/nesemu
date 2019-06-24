@@ -1,14 +1,23 @@
 #include "screen.h"
 #include "common.h"
 
+static void sdl_assert(bool cond)
+{
+	if (!cond) {
+		std::ostringstream err{ "SDL Error: " };
+		err << SDL_GetError();
+		throw err.str();
+	}
+}
+
 Screen::Screen()
 {
 	sdl_assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
 
 	window = SDL_CreateWindow(
-		WindowTitle.c_str(),
+		window_title.c_str(),
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		DisplayWidth, DisplayHeight,
+		display_width, display_height,
 		0
 	);
 

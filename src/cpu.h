@@ -14,8 +14,7 @@
 class Memory;
 using Extended_addr = int;
 
-class Cpu_snapshot {
-public:
+struct Cpu_snapshot {
 	const uint16_t pc;
 	const std::vector<uint8_t> instr;
 	const uint8_t a, x, y;
@@ -24,6 +23,9 @@ public:
 
 	Cpu_snapshot(uint16_t pc, std::vector<uint8_t> instr, uint8_t a,
 	             uint8_t x, uint8_t y, uint8_t p, uint8_t sp, unsigned cyc);
+
+	bool operator==(const Cpu_snapshot& other) const;
+	bool operator!=(const Cpu_snapshot& other) const;
 
 	std::string str() const;
 };
