@@ -344,7 +344,7 @@ void Cpu::exec_instr(Instruction instr, Extended_addr addr)
 		push(a);
 		break;
 	case Instruction::plp:
-		status.raw = (pull() & 0xEF) | 0x20;
+		status.raw = (pull() & ~BIT(4)) | BIT(5);
 		break;
 	case Instruction::pla:
 		zn(a = pull());
@@ -520,7 +520,7 @@ void Cpu::exec_instr(Instruction instr, Extended_addr addr)
 		jumped = true;
 		break;
 	case Instruction::rti:
-		status.raw = (pull() & 0xEF) | 0x20;
+		status.raw = (pull() & ~BIT(4)) | BIT(5);
 		program_counter = pull_addr();
 		jumped = true;
 		break;
@@ -532,20 +532,25 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 	switch (opcode) {
 	case 0x00: return Op{ Instruction::brk, Mode::implied, 7, Penalty::none };
 	case 0x01: return Op{ Instruction::ora, Mode::indirect_x, 6, Penalty::none };
+	case 0x04: return Op{ Instruction::nop, Mode::zero_page, 3, Penalty::none };
 	case 0x05: return Op{ Instruction::ora, Mode::zero_page, 3, Penalty::none };
 	case 0x06: return Op{ Instruction::asl, Mode::zero_page, 5, Penalty::none };
 	case 0x08: return Op{ Instruction::php, Mode::implied, 3, Penalty::none };
 	case 0x09: return Op{ Instruction::ora, Mode::immediate, 2, Penalty::none };
 	case 0x0A: return Op{ Instruction::asl, Mode::accumulator, 2, Penalty::none };
+	case 0x0C: return Op{ Instruction::nop, Mode::absolute, 4, Penalty::none };
 	case 0x0D: return Op{ Instruction::ora, Mode::absolute, 4, Penalty::none };
 	case 0x0E: return Op{ Instruction::asl, Mode::absolute, 6, Penalty::none };
 
 	case 0x10: return Op{ Instruction::bpl, Mode::relative, 2, Penalty::branch };
 	case 0x11: return Op{ Instruction::ora, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x14: return Op{ Instruction::nop, Mode::zero_page_x, 4, Penalty::none };
 	case 0x15: return Op{ Instruction::ora, Mode::zero_page_x, 4, Penalty::none };
 	case 0x16: return Op{ Instruction::asl, Mode::zero_page_x, 6, Penalty::none };
 	case 0x18: return Op{ Instruction::clc, Mode::implied, 2, Penalty::none };
 	case 0x19: return Op{ Instruction::ora, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x1A: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0x1C: return Op{ Instruction::nop, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x1D: return Op{ Instruction::ora, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x1E: return Op{ Instruction::asl, Mode::absolute_x, 7, Penalty::none };
 
@@ -563,15 +568,19 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 
 	case 0x30: return Op{ Instruction::bmi, Mode::relative, 2, Penalty::branch };
 	case 0x31: return Op{ Instruction::and_, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x34: return Op{ Instruction::nop, Mode::zero_page_x, 4, Penalty::none };
 	case 0x35: return Op{ Instruction::and_, Mode::zero_page_x, 4, Penalty::none };
 	case 0x36: return Op{ Instruction::rol, Mode::zero_page_x, 6, Penalty::none };
 	case 0x38: return Op{ Instruction::sec, Mode::implied, 2, Penalty::none };
 	case 0x39: return Op{ Instruction::and_, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x3A: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0x3C: return Op{ Instruction::nop, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x3D: return Op{ Instruction::and_, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x3E: return Op{ Instruction::rol, Mode::absolute_x, 7, Penalty::none };
 
 	case 0x40: return Op{ Instruction::rti, Mode::implied, 6, Penalty::none };
 	case 0x41: return Op{ Instruction::eor, Mode::indirect_x, 6, Penalty::none };
+	case 0x44: return Op{ Instruction::nop, Mode::zero_page, 3, Penalty::none };
 	case 0x45: return Op{ Instruction::eor, Mode::zero_page, 3, Penalty::none };
 	case 0x46: return Op{ Instruction::lsr, Mode::zero_page, 5, Penalty::none };
 	case 0x48: return Op{ Instruction::pha, Mode::implied, 3, Penalty::none };
@@ -583,15 +592,19 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 
 	case 0x50: return Op{ Instruction::bvc, Mode::relative, 2, Penalty::branch };
 	case 0x51: return Op{ Instruction::eor, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x54: return Op{ Instruction::nop, Mode::zero_page_x, 4, Penalty::none };
 	case 0x55: return Op{ Instruction::eor, Mode::zero_page_x, 4, Penalty::none };
 	case 0x56: return Op{ Instruction::lsr, Mode::zero_page_x, 6, Penalty::none };
 	case 0x58: return Op{ Instruction::cli, Mode::implied, 2, Penalty::none };
 	case 0x59: return Op{ Instruction::eor, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x5A: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0x5C: return Op{ Instruction::nop, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x5D: return Op{ Instruction::eor, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x5E: return Op{ Instruction::lsr, Mode::absolute_x, 7, Penalty::none };
 
 	case 0x60: return Op{ Instruction::rts, Mode::implied, 6, Penalty::none };
 	case 0x61: return Op{ Instruction::adc, Mode::indirect_x, 6, Penalty::none };
+	case 0x64: return Op{ Instruction::nop, Mode::zero_page, 3, Penalty::none };
 	case 0x65: return Op{ Instruction::adc, Mode::zero_page, 3, Penalty::none };
 	case 0x66: return Op{ Instruction::ror, Mode::zero_page, 5, Penalty::none };
 	case 0x68: return Op{ Instruction::pla, Mode::implied, 4, Penalty::none };
@@ -603,18 +616,24 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 
 	case 0x70: return Op{ Instruction::bvs, Mode::relative, 2, Penalty::branch };
 	case 0x71: return Op{ Instruction::adc, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0x74: return Op{ Instruction::nop, Mode::zero_page_x, 4, Penalty::none };
 	case 0x75: return Op{ Instruction::adc, Mode::zero_page_x, 4, Penalty::none };
 	case 0x76: return Op{ Instruction::ror, Mode::zero_page_x, 6, Penalty::none };
 	case 0x78: return Op{ Instruction::sei, Mode::implied, 2, Penalty::none };
 	case 0x79: return Op{ Instruction::adc, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0x7A: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0x7C: return Op{ Instruction::nop, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x7D: return Op{ Instruction::adc, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0x7E: return Op{ Instruction::ror, Mode::absolute_x, 7, Penalty::none };
 
+	case 0x80: return Op{ Instruction::nop, Mode::immediate, 2, Penalty::none };
 	case 0x81: return Op{ Instruction::sta, Mode::indirect_x, 6, Penalty::none };
+	case 0x82: return Op{ Instruction::nop, Mode::immediate, 2, Penalty::none };
 	case 0x84: return Op{ Instruction::sty, Mode::zero_page, 3, Penalty::none };
 	case 0x85: return Op{ Instruction::sta, Mode::zero_page, 3, Penalty::none };
 	case 0x86: return Op{ Instruction::stx, Mode::zero_page, 3, Penalty::none };
 	case 0x88: return Op{ Instruction::dey, Mode::implied, 2, Penalty::none };
+	case 0x89: return Op{ Instruction::nop, Mode::immediate, 2, Penalty::none };
 	case 0x8A: return Op{ Instruction::txa, Mode::implied, 2, Penalty::none };
 	case 0x8C: return Op{ Instruction::sty, Mode::absolute, 4, Penalty::none };
 	case 0x8D: return Op{ Instruction::sta, Mode::absolute, 4, Penalty::none };
@@ -657,6 +676,7 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 
 	case 0xC0: return Op{ Instruction::cpy, Mode::immediate, 2, Penalty::none };
 	case 0xC1: return Op{ Instruction::cmp, Mode::indirect_x, 6, Penalty::none };
+	case 0xC2: return Op{ Instruction::nop, Mode::immediate, 2, Penalty::none };
 	case 0xC4: return Op{ Instruction::cpy, Mode::zero_page, 3, Penalty::none };
 	case 0xC5: return Op{ Instruction::cmp, Mode::zero_page, 3, Penalty::none };
 	case 0xC6: return Op{ Instruction::dec, Mode::zero_page, 5, Penalty::none };
@@ -669,15 +689,19 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 
 	case 0xD0: return Op{ Instruction::bne, Mode::relative, 2, Penalty::branch };
 	case 0xD1: return Op{ Instruction::cmp, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0xD4: return Op{ Instruction::nop, Mode::zero_page_x, 4, Penalty::none };
 	case 0xD5: return Op{ Instruction::cmp, Mode::zero_page_x, 4, Penalty::none };
 	case 0xD6: return Op{ Instruction::dec, Mode::zero_page_x, 6, Penalty::none };
 	case 0xD8: return Op{ Instruction::cld, Mode::implied, 2, Penalty::none };
 	case 0xD9: return Op{ Instruction::cmp, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0xDA: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0xDC: return Op{ Instruction::nop, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0xDD: return Op{ Instruction::cmp, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0xDE: return Op{ Instruction::dec, Mode::absolute_x, 7, Penalty::none };
 
 	case 0xE0: return Op{ Instruction::cpx, Mode::immediate, 2, Penalty::none };
 	case 0xE1: return Op{ Instruction::sbc, Mode::indirect_x, 6, Penalty::none };
+	case 0xE2: return Op{ Instruction::nop, Mode::immediate, 2, Penalty::none };
 	case 0xE4: return Op{ Instruction::cpx, Mode::zero_page, 3, Penalty::none };
 	case 0xE5: return Op{ Instruction::sbc, Mode::zero_page, 3, Penalty::none };
 	case 0xE6: return Op{ Instruction::inc, Mode::zero_page, 5, Penalty::none };
@@ -690,10 +714,13 @@ Cpu::Op Cpu::get_op(uint8_t opcode)
 
 	case 0xF0: return Op{ Instruction::beq, Mode::relative, 2, Penalty::branch };
 	case 0xF1: return Op{ Instruction::sbc, Mode::indirect_y, 5, Penalty::page_cross };
+	case 0xF4: return Op{ Instruction::nop, Mode::zero_page_x, 4, Penalty::none };
 	case 0xF5: return Op{ Instruction::sbc, Mode::zero_page_x, 4, Penalty::none };
 	case 0xF6: return Op{ Instruction::inc, Mode::zero_page_x, 6, Penalty::none };
 	case 0xF8: return Op{ Instruction::sed, Mode::implied, 2, Penalty::none };
 	case 0xF9: return Op{ Instruction::sbc, Mode::absolute_y, 4, Penalty::page_cross };
+	case 0xFA: return Op{ Instruction::nop, Mode::implied, 2, Penalty::none };
+	case 0xFC: return Op{ Instruction::nop, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0xFD: return Op{ Instruction::sbc, Mode::absolute_x, 4, Penalty::page_cross };
 	case 0xFE: return Op{ Instruction::inc, Mode::absolute_x, 7, Penalty::none };
 

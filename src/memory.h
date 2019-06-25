@@ -29,7 +29,10 @@ public:
 	uint8_t read(Extended_addr addr);
 	void write(Extended_addr addr, uint8_t value);
 
-	inline void connect(Cartridge cart) { this->cart = std::move(cart); }
+	inline void connect(Cartridge cart) 
+	{ 
+		this->cart = std::move(cart); 
+	}
 
 private:
 	std::array<uint8_t, internal_ram> ram;
