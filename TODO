@@ -1,7 +1,7 @@
 PPUDATA should read/write from vram
 PPU::2007 should read/write from vram not ram
-use propper ISO C++ style (naming, indents)
-    constants/enums : ConstValue -> const_value
-    classes         : ClassName -> Class_name
-order public/private members
-remove all code from class declarations
+
+write scripts (bash? lua? perl/python? batsh? fish?) 
+ - run nestest
+ - run fceux with lua script
+
