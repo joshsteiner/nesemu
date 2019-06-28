@@ -1,0 +1,62 @@
+#!/usr/bin/env luajit
+-- extract info from iNES file
+
+local HEADERSIZE = 16
+local TRAINERSIZE = 0x200
+local ROMPAGESIZE = 0x4000
+local VROMPAGESIZE = 0x2000
+local MAGICCONST = "NES\x1A"
+
+local function bit(n)
+  return 1 << n
+end
+
+if #arg ~= 1 then
+  io.write"USAGE: parseinfo ROM"
+  os.exit(-1)
+end
+
+local f = assert(io.open(arg[1]))
+
+if f:read(4) ~= MAGICCONST then
+  io.write"Invalid cart"
+  os.exit(-1)
+end
+
+local romsize = f:read(1) * ROMPAGESIZE
+local vromsize = f:read(1) * VROMPAGESIZE
+local flag6 = f:read(1)
+local flag7 = f:read(1)
+
+local mirroring = (flag6 & bit(0)) and "vertical" or "horizontal"
+local mapper = (flag7 & 0xF0) | (flag6 >> 4)
+local hasbattery = (flag6 & bit(1)) ~= 0
+
+local hastrainer = flag6 & bit(2)
+
+-- skip rest of header
+file.seekg(HEADERSIZE, std::ifstream::beg);
+
+-- skip trainer
+if hastrainer then
+  file.seekg(TRAINERSIZE, std::ifstream::cur);
+end
+
+-- read prg_rom
+cart.rom.reserve(rom_size);
+for (size_t i = 0; i < rom_size; i++) {
+  cart.rom.push_back(file.get());
+}
+
+-- read chr_rom
+cart.vrom.reserve(vrom_size);
+for (size_t i = 0; i < vrom_size; i++) {
+  cart.vrom.push_back(file.get());
+}
+
+local nmiaddr
+local irqaddr
+local resetaddr
+
+
+f:close()

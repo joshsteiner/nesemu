@@ -33,15 +33,35 @@ local instrlen = {
   [0xFA] = 0, [0xFC] = 2, [0xFD] = 2, [0xFE] = 2
 }
 
-function getinstruction(pc)
-  local instr = "["
+local function getinstruction(pc)
+  local instr = ""
   local ilen = instrlen[memory.readbyte(pc)]
   for i = 0, ilen do
     instr = instr .. string.format("%02X ", memory.readbyte(pc + i))
   end
-  instr = instr .. "]"
+  for i = 1, 2 - ilen do
+    instr = instr .. "   "
+  end
   return instr
 end
+
+local function read16(addr)
+  return memory.readbyte(addr + 1) * 0x100 + memory.readbyte(addr)
+end
+
+io.write(string.format("%04X\n", read16(0xFFFA)))
+io.write(string.format("%04X\n", read16(0xFFFC)))
+io.write(string.format("%04X\n", read16(0xFFFE)))
+
+memory.registerrun(read16(0xFFFA), function ()
+  io.write"NMI addr accessed\n"
+end)
+memory.registerrun(read16(0xFFFC), function ()
+  io.write"RESET addr accessed\n"
+end)
+memory.registerrun(read16(0xFFFE), function ()
+  io.write"IRQ addr accessed\n"
+end)
 
 -- emu.setrenderplanes(true, true)
 
@@ -53,7 +73,7 @@ for _ = 0, 100 do
   local y = memory.getregister("y")
   local p = memory.getregister("p")
   local s = memory.getregister("s")
-  io.write(string.format("%04X %s %02X %02X %02X %02X %02X\n", pc, instr, a, x, y, p, s))
+  io.write(string.format("%04X  %s A:%02X X:%02X Y:%02X P:%02X SP:%02X\n", pc, instr, a, x, y, p, s))
   emu.frameadvance()
 end
 
