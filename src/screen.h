@@ -12,7 +12,7 @@
 
 using Color = uint32_t;
 
-const size_t display_width  = 256;
+const size_t display_width = 256;
 const size_t display_height = 240;
 
 const std::string window_title = "nesemu";
@@ -22,14 +22,19 @@ public:
 	Screen();
 	~Screen();
 
-	Color get(unsigned r, unsigned c);
-	void set(unsigned r, unsigned c, Color value);
-	void update();
+	Color get_fg(unsigned r, unsigned c);
+	void set_fg(unsigned r, unsigned c, Color value);
+	Color get_bg(unsigned r, unsigned c);
+	void set_bg(unsigned r, unsigned c, Color value);
+
+	void swap();
+	void render();
 
 private:
 	SDL_Window* window;
 	SDL_Surface* surface;
-
+	Color front[display_height][display_width];
+	Color back[display_height][display_width];
 };
 
 extern Screen screen;

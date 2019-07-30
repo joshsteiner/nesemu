@@ -29,57 +29,58 @@ struct Cpu_snapshot {
 
 	std::string str() const;
 };
+using Status_register = FLAG_BYTE({
+	unsigned carry             : 1;
+	unsigned zero              : 1;
+	unsigned interrupt_disable : 1;
+	unsigned decimal_mode      : 1;
+	unsigned break_            : 1;
+	unsigned                   : 1;
+	unsigned overflow          : 1;
+	unsigned negative          : 1;
+});
+
+enum class Mode {
+	implied, accumulator, immediate, relative,
+	zero_page, zero_page_x, zero_page_y,
+	absolute, absolute_x, absolute_y,
+	indirect, indirect_x, indirect_y
+};
+
+enum Instruction {
+	nop,
+	inc, inx, iny, dec, dex, dey,
+	clc, cld, cli, clv, sec, sed, sei,
+	tax, tay, txa, tya, txs, tsx,
+	php, pha, plp, pla,
+	bcs, bcc, beq, bne, bmi, bpl, bvs, bvc,
+	lda, ldx, ldy, sta, stx, sty,
+	bit, cmp, cpx, cpy,
+	and_, ora, eor, asl, lsr, rol, ror, adc, sbc,
+	jmp, jsr, rts,
+	brk, rti
+};
+
+enum class Penalty {
+	none, page_cross, branch
+};
+
+struct Op {
+	const bool valid;
+	const Instruction instr;
+	const Mode mode;
+	const unsigned base_cycle;
+	const Penalty penalty;
+
+	Op();
+	Op(Instruction instr, Mode mode, unsigned base_cycle, Penalty penalty);
+
+	bool operator==(const Op& other) const;
+};
+
+const Op invalid_op;
 
 class Cpu {
-	friend class Memory;
-	friend class ExtPtr;
-
-private:
-	using Status_register = FLAG_BYTE({
-		unsigned carry             : 1;
-		unsigned zero              : 1;
-		unsigned interrupt_disable : 1;
-		unsigned decimal_mode      : 1;
-		unsigned break_            : 1;
-		unsigned                   : 1;
-		unsigned overflow          : 1;
-		unsigned negative          : 1;
-	});
-
-	enum class Mode {
-		implied, accumulator, immediate, relative,
-		zero_page, zero_page_x, zero_page_y,
-		absolute, absolute_x, absolute_y,
-		indirect, indirect_x, indirect_y
-	};
-
-	enum Instruction {
-		nop,
-		inc, inx, iny, dec, dex, dey,
-		clc, cld, cli, clv, sec, sed, sei,
-		tax, tay, txa, tya, txs, tsx,
-		php, pha, plp, pla,
-		bcs, bcc, beq, bne, bmi, bpl, bvs, bvc,
-		lda, ldx, ldy, sta, stx, sty,
-		bit, cmp, cpx, cpy,
-		and_, ora, eor, asl, lsr, rol, ror, adc, sbc,
-		jmp, jsr, rts,
-		brk, rti
-	};
-
-	enum class Penalty {
-		none, page_cross, branch
-	};
-
-	struct Op {
-		const Instruction instr;
-		const Mode mode;
-		const unsigned base_cycle;
-		const Penalty penalty;
-
-		Op(Instruction instr, Mode mode, unsigned base_cycle, Penalty penalty);
-	};
-
 public:
 	enum class Interrupt {
 		none, irq, nmi
@@ -103,13 +104,13 @@ public:
 
 	Cpu_snapshot take_snapshot();
 
-private:
-	static const uint16_t stack_page = 0x0100;
-	static const unsigned cpu_cycle_wraparound = 341;
-
 	static const Extended_addr nmi_vec_addr = 0xFFFA;
 	static const Extended_addr reset_vec_addr = 0xFFFC;
 	static const Extended_addr irq_vec_addr = 0xFFFE;
+
+private:
+	static const uint16_t stack_page = 0x0100;
+	static const unsigned cpu_cycle_wraparound = 341;
 
 	bool jumped;
 	bool page_crossed;
@@ -130,9 +131,9 @@ private:
 	Extended_addr get_addr(Mode mode);
 	unsigned get_arg_size(Mode mode);
 	void exec_instr(Instruction instr, Extended_addr addr);
-	Op get_op(uint8_t opcode);
+	const Op& get_op(uint8_t opcode);
 
-	void do_int(Interrupt interrupt);
+	void do_int();
 };
 
 extern Cpu cpu;

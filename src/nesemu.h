@@ -6,10 +6,10 @@
 #include "ppu.h"
 #include "memory.h"
 
+#include <iostream>
 #include <memory>
 
-class Console
-{
+class Console {
 public:
 	void step()
 	{
@@ -25,10 +25,9 @@ public:
 		if (!file.is_open()) { 
 			throw "file error"; 
 		}
-		auto cart = Cartridge::from_ines(file);
-		memory.connect(cart);
-		cpu.reset();
+		cart = Cartridge::from_ines(file);
 		ppu.reset();
+		cpu.reset();
 	}
 };
 

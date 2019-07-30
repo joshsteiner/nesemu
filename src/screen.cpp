@@ -33,20 +33,49 @@ Screen::~Screen()
 	SDL_Quit();
 }
 
-Color Screen::get(unsigned r, unsigned c)
+Color Screen::get_fg(unsigned r, unsigned c)
 {
-	auto pixels = static_cast<Color*>(surface->pixels);
-	return pixels[r * surface->pitch / 4 + c];
+	r %= display_height;
+	c %= display_width;
+	return front[r][c];
 }
 
-void Screen::set(unsigned r, unsigned c, Color value)
+void Screen::set_fg(unsigned r, unsigned c, Color value)
 {
-	logger << "set(r=" << std::dec << r << ",c=" << c << ",val=" << std::hex << value << ")\n";
-	auto pixels = static_cast<Color*>(surface->pixels);
-	pixels[r * surface->pitch / 4 + c] = value;
+	r %= display_height;
+	c %= display_width;
+	front[r][c] = value;
 }
 
-void Screen::update()
+Color Screen::get_bg(unsigned r, unsigned c)
 {
+	r %= display_height;
+	c %= display_width;
+	return back[r][c];
+}
+
+void Screen::set_bg(unsigned r, unsigned c, Color value)
+{
+	LOG_FMT("set=%d,%d", r, c);
+	r %= display_height;
+	c %= display_width;
+	back[r][c] = value;
+}
+
+void Screen::swap()
+{
+	std::swap(front, back);
+}
+
+void Screen::render()
+{
+	auto pixels = static_cast<Color*>(surface->pixels);
+
+	for (int r = 0; r < display_height; ++r) {
+		for (int c = 0; c < display_width; ++c) {
+			pixels[r * surface->pitch / 4 + c] = front[r][c];
+		}
+	}
+
 	SDL_UpdateWindowSurface(window);
 }

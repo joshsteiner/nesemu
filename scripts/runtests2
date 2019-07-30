@@ -1,0 +1,41 @@
+#!/bin/bash
+
+if [ $# != 1 ]; then
+  echo "USAGE: runtests romfile.nes"
+  exit 1
+fi
+
+wd=~/Projects/nesemu
+romfile=$1
+nesemulog=$(mktemp)
+fceuxlog=$(mktemp)
+
+# n -> ()
+function printfceuxlog {
+  local f = assert(io.open(fceuxlog, "r"))
+
+  repeat
+    local line = f:read()
+  until string.sub(line, 1, 9) == "Emulation"
+
+  echo "fceux log:"
+  for _ = 1, n do
+    io.write(f:read() .. "\n")
+  end
+
+  f:close()
+}
+
+function printnesemulog {
+  echo "nesemu log:"
+  head -$1 $nesemulog
+}
+
+echo "running 2s..."
+timeout 2s $wd/nesemu "$romfile" 2> $nesemulog
+fceux "$romfile" --loadlua $wd/scripts/fceuxlog.lua > $fceuxlog
+echo "done"
+
+printfceuxlog 20
+printnesemulog 20
+

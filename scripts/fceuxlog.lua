@@ -49,10 +49,6 @@ local function read16(addr)
   return memory.readbyte(addr + 1) * 0x100 + memory.readbyte(addr)
 end
 
-io.write(string.format("%04X\n", read16(0xFFFA)))
-io.write(string.format("%04X\n", read16(0xFFFC)))
-io.write(string.format("%04X\n", read16(0xFFFE)))
-
 memory.registerrun(read16(0xFFFA), function ()
   io.write"NMI addr accessed\n"
 end)
@@ -63,8 +59,10 @@ memory.registerrun(read16(0xFFFE), function ()
   io.write"IRQ addr accessed\n"
 end)
 
--- emu.setrenderplanes(true, true)
+-- sprites, background
+emu.setrenderplanes(true, false)
 
+--while true do
 for _ = 0, 100 do
   local pc = memory.getregister("pc")
   local instr = getinstruction(pc)

@@ -1,6 +1,9 @@
 #include "ppu.h"
 
 
+uint16_t nt_mirror(uint16_t addr);
+
+
 Ppu::Ppu()
 {
 	reset();
@@ -11,77 +14,51 @@ void Ppu::reset()
 	cycle = 340;
 	scan_line = 240;
 	frame = 0;
-	//writeControl(0);
-	//writeMask(0);
-	//writeOAMAddress(0);
+	control.raw = 0;
+	mask.raw = 0;
+	oam_address = 0;
+	w = 0;
+	dot = 0;
+	f = 0;
 }
 
 uint8_t Ppu::read(uint16_t addr)
 {
-	logger << "Ppu::read(" << std::hex << addr << ")\n";
+	addr %= 0x4000;
 
-	if (BETWEEN(addr, 0, 0x2000)) {
-		return memory.cart.vrom.at(addr);
-	} else if (BETWEEN(addr, 0x2000, 0x3F00)) {
-		// no nametable mirroring in Ppu::read, only memory mirroring instead
-		if (addr > 0x3000) {
-			addr -= 0x1000;
+	switch(addr) { 
+	case 0 ... 0x1FFF:
+		return cart->vrom.at(addr);
+	case 0x2000 ... 0x3EFF:
+		return nametable_data.at(nt_mirror(addr));
+	case 0x3F00 ... 0x3FFF:
+		if ((addr & 0x13) == 0x10) {
+			addr &= ~0x10;
 		}
-		addr -= 0x2000;
-		logger << "nametable_data: reading: " << addr << "\n";
-		return nametable_data.at(addr);
-	} else if (BETWEEN(addr, 0x3F00, 0x4000)) {
-		addr = (addr - 0x3F00) % 0x20;
-		return palette_data.at(addr);
+		return palette_data.at(addr & 0x1F) & (mask.grayscale ? 0x30 : 0xFF);
+	default:
+		return 0;
 	}
-
-	// TEMPORARY SOLUTION: ignore this for now
-	return read(addr % 0x4000);
-	throw std::string("Invalid addr in Ppu::read()");
 }
 
 void Ppu::write(uint16_t addr, uint8_t value)
 {
-	logger << "Ppu::write(" << addr << ", " << (int)value << ")";
-	if (BETWEEN(addr, 0, 0x2000)) {
-		// is this memory read only?
-		logger << "potential ROM write\n";
-		memory.cart.vrom.at(addr) = value;
-		return;
-	} else if (BETWEEN(addr, 0x2000, 0x3F00)) {
-		if (addr > 0x3000) {
-			addr -= 0x1000;
-		}
-		addr -= 0x2000;
-		unsigned neutral_bit;
-		switch (memory.cart.mirroring) {
-		case Mirroring::vertical:
-			// Vertical: $2000 = $2800 ; $2400 = $2C00
-			neutral_bit = (1 << 11);
-			break;
-		case Mirroring::horizontal:
-			// Horizontal: $2000 = $2400 ; $2800 = $2C00
-			neutral_bit = (1 << 10);
-			break;
-		}
-		logger << "nametable_data: writing to: " << addr << " & " << (addr ^ neutral_bit) << "\n";
-		nametable_data.at(addr) = nametable_data.at(addr ^ neutral_bit) = value;
-		return;
-	} else if (BETWEEN(addr, 0x3F00, 0x4000)) {
-		addr = (addr - 0x3F00) % 0x20;
-		palette_data.at(addr) = value;
-		return;
-	}
+	addr %= 0x4000;
 
-	throw std::string("Invalid addr in Ppu::write()");
-}
-
-uint8_t& Ppu::palette_at(uint16_t addr)
-{
-	if (addr >= 16 && addr % 4 == 0) {
-		addr -= 16;
+	switch (addr) {
+	case 0 ... 0x1FFF:
+		cart->vrom.at(addr) = value;
+		break;
+	case 0x2000 ... 0x3EFF:
+		nametable_data.at(nt_mirror(addr)) = value;
+		break;
+	case 0x3F00 ... 0x3FFF:
+		if ((addr & 0x13) == 0x10) {
+			addr &= ~0x10;
+		}
+		palette_data.at(addr & 0x1F) = value; 
+		break;
 	}
-	return palette_data.at(addr);
 }
 
 uint8_t Ppu::read_register(uint16_t address)
@@ -92,24 +69,21 @@ uint8_t Ppu::read_register(uint16_t address)
 		status.filler = reg;
 		auto result = status.raw;
 		status.nmi_occurred = 0;
-		nmi_change();
 		w = 0;
 		return result;
 	}
 	case 0x2004:
+		
 		return oam_data.at(oam_address);
 	case 0x2007:
 	{
-		// TODO: read from ppu, not memory
-		auto value = read(v);
-		// emulate buffered reads
-		if (v % 0x4000 < 0x3F00) {
+		auto value = read(v.raw);
+		if (v.raw % 0x4000 < 0x3F00) {
 			std::swap(buffered_data, value);
 		} else {
-			buffered_data = memory.read(v - 0x1000);
+			buffered_data = memory.read(v.raw - 0x1000);
 		}
-		// increment address
-		v += (control.increment == 0) ? 1 : 32;
+		v.raw += (control.increment == 0) ? 1 : 32;
 		return value;
 	}
 	}
@@ -122,8 +96,7 @@ void Ppu::write_register(uint16_t address, uint8_t value)
 	switch (address) {
 	case 0x2000:
 		control.raw = value;
-		nmi_change();
-		t = (t & 0xF3FF) | ((value & 0x03) << 10);
+		t.nt_select = value;
 		break;
 	case 0x2001:
 		mask.raw = value;
@@ -132,44 +105,43 @@ void Ppu::write_register(uint16_t address, uint8_t value)
 		oam_address = value;
 		break;
 	case 0x2004:
+		
 		oam_data.at(oam_address) = value;
 		++oam_address;
 		break;
 	case 0x2005:
 		if (w == 0) {
-			t = (t & 0xFFE0) | (value >> 3);
-			x = value & 0x07;
+			t.coarse_x = value >> 3;
+			x = value & 0x7;
 			w = 1;
 		} else {
-			t = (t & 0x8FFF) | ((value & 0x07) << 12);
-			t = (t & 0xFC1F) | ((value & 0xF8) << 2);
+			t.coarse_y = value >> 3;
+			t.fine_y = value & 0x7;
 			w = 0;
 		}
 		break;
 	case 0x2006:
 		if (w == 0) {
-			t = (t & 0x80FF) | ((value & 0x3F) << 8);
+			t.hi = value;
 			w = 1;
 		} else {
-			t = (t & 0xFF00) | value;
-			v = t;
+			t.low = value;
+			v.raw = t.raw;
 			w = 0;
 		}
 		break;
 	case 0x2007:
-		// TODO: write to ppu, not memory
-		logger << "Ppu::writeData : v=" << std::hex << v << "\n";
-		write(v, value);
-		v += (control.increment == 0) ? 1 : 32;
+		LOG_FMT("Ppu::writeData : v=%X", v.raw);
+		write(v.raw, value); 
+		v.raw += (control.increment == 0) ? 1 : 32;
 		break;
 	case 0x4014:
 	{
 		auto address = value << 8;
-		for (auto i = 0; i < 256; i++) {
-			// TODO: wrap
+		for (auto i = 0; i < 256; ++i) {
 			oam_data.at(oam_address) = memory.read(address);
-			oam_address++;
-			address++;
+			++oam_address;
+			++address;
 		}
 		cpu.stall(cpu.cycle % 2 == 1 ? 514 : 513);
 		break;
@@ -179,364 +151,391 @@ void Ppu::write_register(uint16_t address, uint8_t value)
 
 void Ppu::incr_x()
 {
-	if ((v & 0x001F) == 31) {
-		v &= 0xFFE0;
-		v ^= 0x0400;
-	} else {
-		v++;
+	if (!rendering()) {
+		return;
+	}
+	++v.coarse_x;
+	if (v.coarse_x == 0) {
+		v.nt_select ^= BIT(0);
 	}
 }
 
 void Ppu::incr_y()
 {
-	if ((v & 0x7000) != 0x7000) {
-		v += 0x1000;
-	} else {
-		v &= 0x8FFF;
-		auto y = (v & 0x03E0) >> 5;
-		if (y == 29) {
-			y = 0;
-			v ^= 0x0800;
-		} else if (y == 31) {
-			y = 0;
-		} else {
-			y++;
+	if (!rendering()) {
+		return;
+	}
+	++v.fine_y;
+	if (v.fine_y == 0) {
+		++v.coarse_y;
+		if (v.coarse_y == 30) {
+			v.coarse_y = 0;
+			v.nt_select = BIT(1);
 		}
-		v = (v & 0xFC1F) | (y << 5);
 	}
 }
 
 void Ppu::copy_x()
 {
-	v = (v & 0xFBE0) | (t & 0x041F);
+	if (!rendering()) {
+		return;
+	}
+	v.coarse_x = t.coarse_x;
+	v.nt_select &= BIT(0);
+	v.nt_select |= t.nt_select & BIT(0);
 }
 
 void Ppu::copy_y()
 {
-	v = (v & 0x841F) | (t & 0x7BE0);
-}
-
-void Ppu::nmi_change()
-{
-	bool nmi = control.nmi_output && status.nmi_occurred;
-	if (nmi && !nmi_previous) {
-		// TODO: this fixes some games but the delay shouldn't have to be so
-		// long, so the timings are off somewhere
-		nmi_delay = 15;
+	if (!rendering()) {
+		return;
 	}
-	nmi_previous = nmi;
+	v.coarse_y = t.coarse_y;
+	v.fine_y = t.fine_y;
+	v.nt_select &= BIT(1);
+	v.nt_select |= t.nt_select & BIT(1);
 }
 
-void Ppu::set_vertical_blank()
-{
-	screen.update();
-	nmi_occurred = true;
-	nmi_change();
+bool Ppu::rendering() 
+{ 
+	return mask.show_background || mask.show_sprites; 
 }
 
-void Ppu::clear_vertical_blank()
-{
-	status.nmi_occurred = false;
-	nmi_change();
+int Ppu::spr_height() 
+{ 
+	return control.sprite_size ? 16 : 8; 
 }
 
-void Ppu::fetch_nametable_byte()
+/* Get CIRAM address according to mirroring */
+uint16_t nt_mirror(uint16_t addr)
 {
-	auto address = 0x2000 | (v & 0x0FFF);
-	nametable_byte = memory.read(address);
-}
-
-void Ppu::fetch_attribute_table_byte()
-{
-	auto address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
-	auto shift = ((v >> 4) & 4) | (v & 2);
-	attributetable_byte = ((memory.read(address) >> shift) & 3) << 2;
-}
-
-void Ppu::fetch_low_tile_byte()
-{
-	auto fine_y = (v >> 12) & 7;
-	auto table = control.background_table;
-	auto tile = nametable_byte;
-	auto address = 0x1000 * table + tile * 16 + fine_y;
-	low_tile_byte = memory.read(address);
-}
-
-void Ppu::fetch_high_tile_byte()
-{
-	auto fine_y = (v >> 12) & 7;
-	auto table = control.background_table;
-	auto tile = nametable_byte;
-	auto address = 0x1000 * table + tile * 16 + fine_y;
-	high_tile_byte = memory.read(address + 8);
-}
-
-void Ppu::store_tile_data()
-{
-	uint32_t data = 0;
-	for (auto i = 0; i < 8; i++) {
-		auto a =  attributetable_byte;
-		auto p1 = (low_tile_byte & 0x80) >> 7;
-		auto p2 = (high_tile_byte & 0x80) >> 6;
-		low_tile_byte <<= 1;
-		high_tile_byte <<= 1;
-		data <<= 4;
-		data |= a | p1 | p2;
+	switch (cart->mirroring) {
+	case Mirroring::vertical:
+		return addr % 0x800;
+	case Mirroring::horizontal:
+		return ((addr / 2) & 0x400) + (addr % 0x400);
+	default:
+		return addr - 0x2000;
 	}
-	tile_data |= data;
 }
 
-uint32_t Ppu::fetch_tile_data()
-{
-	return tile_data >> 32;
+/* Calculate graphics addresses */
+// TODO: rename these
+uint16_t Ppu::nt_addr() 
+{ 
+	return 0x2000 | (v.raw & 0xFFF); 
 }
 
-uint8_t Ppu::background_pixel()
+uint16_t Ppu::at_addr() 
+{ 
+	return 0x23C0 | (v.nt_select << 10) | ((v.coarse_y / 4) << 3) | (v.coarse_x / 4); 
+}
+
+uint16_t Ppu::bg_addr() 
+{ 
+	return (control.background_table * 0x1000) + (nametable_byte * 16) + v.fine_y; 
+}
+
+/* Put new data into the shift registers */
+void Ppu::reload_shift()
 {
-	if (!mask.show_background) {
-		return 0;
+	bgShiftL = (bgShiftL & 0xFF00) | low_tile_byte;
+	bgShiftH = (bgShiftH & 0xFF00) | high_tile_byte;
+
+	atLatchL = (attributetable_byte & 1);
+	atLatchH = (attributetable_byte & 2);
+}
+
+/* Clear secondary OAM */
+template <size_t Sz>
+void Sprite_data<Sz>::clear()
+{
+	for (auto& sprite : sprites) {
+		sprite.y = 0xFF;
+		sprite.id = 64;
+		sprite.y = 0xFF;
+		sprite.index = 0xFF;
+		sprite.attr.raw = 0xFF;
+		sprite.x = 0xFF;
+		sprite.dataL = 0;
+		sprite.dataH = 0;
 	}
-	auto data = fetch_tile_data() >> ((7 - x) * 4);
-	return data & 0x0F;
 }
 
-std::pair<uint8_t, uint8_t> Ppu::sprite_pixel()
+
+/* Fill secondary OAM with the sprite infos for the next scanline */
+void Ppu::eval_sprites()
 {
-	if (!mask.show_sprites) {
-		return { 0, 0 };
-	}
-	for (unsigned i = 0; i < sprite_count; ++i) {
-		auto offset = (cycle - 1) - sprite_positions[i];
-		if (offset < 0 || offset > 7) {
-			continue;
+	int n = 0;
+	for (int i = 0; i < 64; ++i) {
+		int line = (scan_line == 261 ? -1 : scan_line) - oam_data[i * 4 + 0];
+		// If the sprite is in the scanline, copy its properties into secondary OAM:
+		if (line >= 0 && line < spr_height()) {
+			auto& sprite = secondary_oam.sprite_at(n);
+
+			sprite.id       = i;
+			sprite.y        = oam_data[i * 4 + 0];
+			sprite.index    = oam_data[i * 4 + 1];
+			sprite.attr.raw = oam_data[i * 4 + 2];
+			sprite.x        = oam_data[i * 4 + 3];
+
+			++n;
+			if (n > 8) {
+				status.sprite_overflow = true;
+				break;
+			}
 		}
-		offset = 7 - offset;
-		auto color = (sprite_patterns[i] >> offset * 4) & 0x0F;
-		if (color % 4 == 0) {
-			continue;
-		}
-		return { i, color };
 	}
-	return { 0, 0 };
 }
 
-void Ppu::render_pixel()
+/* Load the sprite info into primary OAM and fetch their tile data. */
+void Ppu::load_sprites()
 {
-	auto x = cycle - 1;
-	auto y = scan_line;
-	auto background = background_pixel();
-	uint8_t i, sprite;
-	std::tie(i, sprite) = sprite_pixel();
-	if (x < 8 && !mask.show_left_background) {
-		background = 0;
-	}
-	if (x < 8 && !mask.show_left_sprites) {
-		sprite = 0;
-	}
-	auto b = background % 4 != 0;
-	auto s = sprite % 4 != 0;
-	uint8_t color;
-	if (!b && !s) {
-		color = 0;
-	} else if (!b && s) {
-		color = sprite | 0x10;
-	} else if (b && !s) {
-		color = background;
-	} else {
-		if (sprite_indexes[i] == 0 && x < 255) {
-			status.sprite_zero_hit = 1;
-		}
-		if (sprite_priorities[i] == 0) {
-			color = sprite | 0x10;
+	uint16_t addr;
+	for (int i = 0; i < 8; ++i) {
+		auto& sprite = primary_oam.sprite_at(i) = secondary_oam.sprite_at(i);  // Copy secondary OAM into primary.
+
+		// Different address modes depending on the sprite height:
+		if (spr_height() == 16) {
+			addr = ((sprite.index & 1) * 0x1000) + ((sprite.index & ~1) * 16);
 		} else {
-			color = background;
+			addr = (control.sprite_table * 0x1000) + (sprite.index  * 16);
 		}
+
+		unsigned sprY = (scan_line - sprite.y) % spr_height();  // Line inside the sprite.
+		if (sprite.attr.flip_vertical) {
+			sprY ^= spr_height() - 1;	  // Vertical flip.
+		}
+		addr += sprY + (sprY & 8);  // Select the second tile if on 8x16.
+
+		sprite.dataL = read(addr + 0);
+		sprite.dataH = read(addr + 8);
 	}
-	auto c = palette[palette_at(color) % 64];
-	screen.set(y, x, c);
 }
 
-uint32_t Ppu::fetch_sprite_pattern(int i, int row)
+// tmp
+static inline int NTH_BIT(int x, int n) 
 {
-	auto tile = oam_data.at(i * 4 + 1);
-	auto attributes = oam_data.at(i * 4 + 2);
-	uint16_t address;
-	if (control.sprite_size == 0) {
-		if ((attributes & 0x80) == 0x80) {
-			row = 7 - row;
-		}
-		auto table = control.sprite_table;
-		address = 0x1000 * table + tile * 16 + row;
-	} else {
-		if ((attributes & 0x80) == 0x80) {
-			row = 15 - row;
-		}
-		auto table = tile & 1;
-		tile &= 0xFE;
-		if (row > 7) {
-			tile++;
-			row -= 8;
-		}
-		address = 0x1000 * table + tile * 16 + row;
-	}
-	auto a = (attributes & 3) << 2;
-	// !!! IMPORTANT: is this a local variable or class? !!!
-	// auto low_tile_byte = memory.read(address);
-	// auto high_tile_byte = memory.read(address + 8);
-	uint32_t data = 0;
-	for (auto i = 0; i < 8; i++) {
-		uint8_t p1, p2;
-		if ((attributes & 0x40) == 0x40) {
-			p1 = (low_tile_byte & 1) << 0;
-			p2 = (high_tile_byte & 1) << 1;
-			low_tile_byte >>= 1;
-			high_tile_byte >>= 1;
-		} else {
-			p1 = (low_tile_byte & 0x80) >> 7;
-			p2 = (high_tile_byte & 0x80) >> 6;
-			low_tile_byte <<= 1;
-			high_tile_byte <<= 1;
-		}
-		data <<= 4;
-		data |= a | p1 | p2;
-	}
-	return data;
+	return (x >> n) & 1;
 }
 
-void Ppu::evaluate_sprites()
+
+/* Process a pixel, draw it if it's on screen */
+void Ppu::pixel()
 {
-	unsigned h = control.sprite_size == 0 ? 8 : 16;
-	auto count = 0;
-	for (auto i = 0; i < 64; ++i) {
-		auto y = oam_data.at(i * 4 + 0);
-		auto a = oam_data.at(i * 4 + 2);
-		auto x = oam_data.at(i * 4 + 3);
-		auto row = scan_line - y;
-		if (row < 0 || row >= h) {
-			continue;
+	uint8_t palette_nr = 0;
+	uint8_t obj_palette_nr = 0;
+	bool objPriority = 0;
+	int x_ = dot - 2; 
+
+	if (scan_line < 240 && x_ >= 0 && x_ < 256) {
+		// Background:
+		if (mask.show_background && !(!mask.show_left_background && x_ < 8)) {
+			palette_nr = (NTH_BIT(bgShiftH, 15 - x) << 1) | NTH_BIT(bgShiftL, 15 - x);
+			if (palette_nr) {
+				palette_nr |= ((NTH_BIT(atShiftH,  7 - x) << 1) | NTH_BIT(atShiftL,  7 - x)) << 2;
+			}
 		}
-		if (count < 8) {
-			sprite_patterns.at(count) = fetch_sprite_pattern(i, row);
-			sprite_positions.at(count) = x;
-			sprite_priorities.at(count) = (a >> 5) & 1;
-			sprite_indexes.at(count) = i;
+		// Sprites:
+		if (mask.show_sprites && !(!mask.show_left_sprites && x_ < 8))
+			for (int i = 7; i >= 0; --i) {
+				auto& sprite = primary_oam.sprite_at(i);
+
+				if (sprite.id == 64) { 
+					continue;
+				}
+				unsigned sprX = x_ - sprite.x;
+				if (sprX >= 8) {  // Not in range.
+					continue;
+				}
+				if (sprite.attr.flip_horizontal) {
+					sprX ^= 7; 
+				}
+				uint8_t sprPalette = (NTH_BIT(sprite.dataH, 7 - sprX) << 1) 
+					| NTH_BIT(sprite.dataL, 7 - sprX);
+				if (sprPalette == 0) {  // Transparent pixel.
+					continue;
+				}
+
+				if (sprite.id == 0 && palette_nr && x_ != 255) {
+					status.sprite_zero_hit = 1;
+				}
+				sprPalette |= (sprite.attr.raw & 3) << 2;
+				obj_palette_nr  = sprPalette + 16;
+				objPriority = sprite.attr.raw & 0x20;
+			}
+		// Evaluate priority:
+		if (obj_palette_nr && (palette_nr == 0 || objPriority == 0)) {
+			palette_nr = obj_palette_nr;
 		}
-		count++;
+
+		screen.set_bg(scan_line, x_, palette.at(read(0x3F00 + (rendering() ? palette_nr : 0))));
 	}
-	if (count > 8) {
-		count = 8;
-		status.sprite_overflow = 1;
-	}
-	sprite_count = count;
+	// Perform background shifts:
+	bgShiftL <<= 1; 
+	bgShiftH <<= 1;
+	atShiftL = (atShiftL << 1) | atLatchL;
+	atShiftH = (atShiftH << 1) | atLatchH;
 }
 
-// tick updates Cycle, ScanLine and Frame counters
-void Ppu::tick()
+
+/* Execute a cycle of a scanline */
+void Ppu::scanline_cycle(Scanline_type scanline_type)
 {
-	if (nmi_delay > 0) {
-		nmi_delay--;
-		if (nmi_delay == 0 && control.nmi_output && status.nmi_occurred) {
-			cpu.trigger(Cpu::Interrupt::nmi);
-		}
-	}
+	static uint16_t addr;
 
-	if (mask.show_background || mask.show_sprites) {
-		if (f == 1 && scan_line == 261 && cycle == 339) {
-			cycle = 0;
-			scan_line = 0;
-			frame++;
-			f ^= 1;
-			return;
+	switch (scanline_type) {
+	case Scanline_type::nmi:
+		if (dot == 1) { 
+			status.nmi_occurred = 1; 
+			if (control.nmi_output) {
+				cpu.trigger(Cpu::Interrupt::nmi);
+			}
 		}
-	}
+		break;
+	case Scanline_type::post: 
+		if (dot == 0) { 
+			screen.swap();
+			screen.render();
+		}
+		break;
+	case Scanline_type::visible: 
+	case Scanline_type::pre:
+		// Sprites:
+		switch (dot) {
+		case 1: 
+			secondary_oam.clear(); 
+			if (scanline_type == Scanline_type::pre) { 
+				status.sprite_overflow = 0;
+				status.sprite_zero_hit = 0; 
+			} 
+			break;
+		case 257: 
+			eval_sprites(); 
+			break;
+		case 321: 
+			load_sprites(); 
+			break;
+		}
 
-	cycle++;
-	if (cycle > 340) {
-		cycle = 0;
-		scan_line++;
-		if (scan_line > 261) {
-			scan_line = 0;
-			frame++;
-			f ^= 1;
+		// Background:
+		switch (dot) {
+		case 2 ... 255: 
+		case 322 ... 337:
+			pixel();
+			switch (dot % 8) {
+			// Nametable:
+			case 1:  
+				addr = nt_addr(); 
+				reload_shift(); 
+				break;
+			case 2:  
+				nametable_byte = read(addr);  
+				break;
+			// Attribute:
+			case 3: 
+				addr = at_addr(); 
+				break;
+			case 4: 
+				attributetable_byte = read(addr);  
+				if (v.coarse_y & 2) { 
+					attributetable_byte >>= 4;
+				}
+				if (v.coarse_y & 2) {
+					attributetable_byte >>= 2; 
+				}
+				break;
+			// Background (low bits):
+			case 5: 
+				addr = bg_addr(); 
+				break;
+			case 6: 
+				low_tile_byte = read(addr);  
+				break;
+			// Background (high bits):
+			case 7: 
+				addr += 8;
+				break;
+			case 0: 
+				high_tile_byte = read(addr); 
+				incr_x();  // h_scroll
+				break;
+			} 
+			break;
+		case 256:  // Vertical bump.
+			pixel(); 
+			high_tile_byte = read(addr); 
+			incr_y(); 
+			break;  
+		case 257:  // Update horizontal position.
+			pixel(); 
+			reload_shift(); 
+			copy_x(); //h_update(); 
+			break;  
+		case 280 ... 304: 
+			if (scanline_type == Scanline_type::pre) {
+				// Update vertical position.
+				copy_y();
+			}
+			break;  
+
+		// No shift reloading:
+		case 1:  
+			addr = nt_addr(); 
+			if (scanline_type == Scanline_type::pre) { 
+				status.nmi_occurred = 0;
+			}
+			break;
+		case 321: 
+		case 339:  
+			addr = nt_addr(); 
+			break;
+		// Nametable fetch instead of attribute:
+		case 338:  
+			nametable_byte = read(addr); 
+			break;
+		case 340:  
+			nametable_byte = read(addr); 
+			if (scanline_type == Scanline_type::pre && rendering() && f) {
+				++dot;
+			}
+			break;
 		}
+
+		// Signal scanline to mapper:
+		if (dot == 260 && rendering()) {
+			// TODO
+			//cart->signal_scanline();
+		}
+		break;
 	}
 }
 
-// Step executes a single PPU cycle
+/* Execute a PPU cycle. */
 void Ppu::step()
 {
-	tick();
-
-	bool rendering_enabled = mask.show_background || mask.show_sprites;
-
-	bool pre_line = scan_line == 261;
-	bool visible_line = scan_line < 240;
-	bool render_line = pre_line || visible_line;
-
-	bool prefetch_cycle = BETWEEN(cycle, 321, 337);
-	bool visible_cycle = BETWEEN(cycle, 1, 257);
-	bool fetch_cycle = prefetch_cycle || visible_cycle;
-
-	// background logic
-	if (rendering_enabled) {
-		if (visible_line && visible_cycle) {
-			render_pixel();
-		}
-		if (render_line && fetch_cycle) {
-			tile_data <<= 4;
-			switch (cycle % 8) {
-			case 1:
-				fetch_nametable_byte();
-				break;
-			case 3:
-				fetch_attribute_table_byte();
-				break;
-			case 5:
-				fetch_low_tile_byte();
-				break;
-			case 7:
-				fetch_high_tile_byte();
-				break;
-			case 0:
-				store_tile_data();
-				break;
-			}
-		}
-		if (pre_line && BETWEEN(cycle, 280, 305)) {
-			copy_y();
-		}
-		if (render_line) {
-			if (fetch_cycle && cycle % 8 == 0) {
-				incr_x();
-			}
-			if (cycle == 256) {
-				incr_y();
-			}
-			if (cycle == 257) {
-				copy_x();
-			}
-		}
+	switch (scan_line) {
+	case 0 ... 239:  
+		scanline_cycle(Scanline_type::visible); 
+		break;
+	case 240:  
+		scanline_cycle(Scanline_type::post);
+		break;
+	case 241: 
+		scanline_cycle(Scanline_type::nmi);	
+		break;
+	case 261:  
+		scanline_cycle(Scanline_type::pre);
+		break;
 	}
-
-	// sprite logic
-	if (rendering_enabled) {
-		if (cycle == 257) {
-			if (visible_line) {
-				evaluate_sprites();
-			} else {
-				sprite_count = 0;
-			}
+	// Update dot and scanline counters:
+	++dot;
+	if (dot > 340) {
+		dot %= 341;
+		if (++scan_line > 261) {
+			scan_line = 0;
+			f ^= 1;
 		}
-	}
-
-	// vblank logic
-	if (scan_line == 241 && cycle == 1) {
-		set_vertical_blank();
-	}
-	if (pre_line && cycle == 1) {
-		clear_vertical_blank();
-		status.sprite_zero_hit = 0;
-		status.sprite_overflow = 0;
 	}
 }
 

@@ -1,22 +1,38 @@
-COMPILER=g++
-FLAGS=-std=c++11 -g -Wall -pedantic -I/usr/include/SDL2
-LINK_FLAGS=-lSDL2
+COMPILER = g++
 
-SOURCE_DIR=src
-INCLUDE_DIR=src
-BUILD_DIR=build
+FLAGS_COMMON  = -std=c++11 -I/usr/include/SDL2 
+FLAGS_DEBUG   = $(FLAGS_COMMON) -g -Wall -pedantic -DLOGGING_ENABLED
+FLAGS_RELEASE = $(FLAGS_COMMON) -O2 
 
-nesemu: src/main.cpp build/cpu.o build/ppu.o build/memory.o build/screen.o build/cart.o
-	$(COMPILER) $^ -o $@ $(FLAGS) $(LINK_FLAGS)
+LINK_FLAGS = -lSDL2
 
-nestest: test/nestest.cpp build/cpu.o build/ppu.o build/memory.o build/screen.o build/cart.o
-	$(COMPILER) $^ -o $@ $(FLAGS) $(LINK_FLAGS)
+OBJS           = cpu ppu memory screen cart
+OBJS_CPP       = $(patsubst %, src/%.cpp, $(OBJS))
+OBJS_H         = $(patsubst %, src/%.h, $(OBJS))
+OBJS_RELEASE_O = $(patsubst %, build/release/%.o, $(OBJS))
+OBJS_DEBUG_O   = $(patsubst %, build/debug/%.o, $(OBJS))
 
-rominfo: tools/rominfo.cpp build/cart.o
+nesemu: src/main.cpp $(OBJS_RELEASE_O)
+	$(COMPILER) $^ -o $@ $(FLAGS_RELEASE) $(LINK_FLAGS)
+
+debug: src/main.cpp $(OBJS_DEBUG_O)
+	$(COMPILER) $^ -o nesemu_dbg $(FLAGS_DEBUG) $(LINK_FLAGS)
+
+nestest: test/nestest.cpp $(OBJS_DEBUG_O)
+	$(COMPILER) $^ -o $@ $(FLAGS_DEBUG) $(LINK_FLAGS)
+
+rominfo: tools/rominfo.cpp build/debug/cart.o
 	$(COMPILER) $^ -o $@ $(FLAGS)
 
-$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp $(BUILD_DIR)
-	$(COMPILER) -c $< -o $@ $(FLAGS)
+build/release/%.o: src/%.cpp src/%.h build/release
+	$(COMPILER) -c $< -o $@ $(FLAGS_RELEASE)
 
-$(BUILD_DIR):
-	mkdir $(BUILD_DIR)
+build/debug/%.o: src/%.cpp src/%.h build/debug
+	$(COMPILER) -c $< -o $@ $(FLAGS_DEBUG)
+
+build/debug:
+	mkdir -p build/debug
+
+build/release:
+	mkdir -p build/release
+

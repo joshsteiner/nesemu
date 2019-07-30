@@ -1,7 +1,7 @@
 #ifndef NESEMU_COMMON_H
 #define NESEMU_COMMON_H
 
-#include <ostream>
+//#include <ostream>
 #include <iostream>
 #include <cstdint>
 
@@ -25,6 +25,12 @@ inline bool odd(T x)
 	return !even(x);
 }
 
-extern std::ostream& logger;
+#if LOGGING_ENABLED
+  #define LOG(MSG)          fprintf(stderr, "%s:%d:%s(): " MSG "\n", __FILE__, __LINE__, __func__)
+  #define LOG_FMT(MSG, ...) fprintf(stderr, "%s:%d:%s(): " MSG "\n", __FILE__, __LINE__, __func__, __VA_ARGS__)
+#else
+  #define LOG(MSG)
+  #define LOG_FMT(MSG, ...)
+#endif
 
 #endif

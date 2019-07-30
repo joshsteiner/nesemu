@@ -6,6 +6,7 @@
 Cpu cpu;
 Ppu ppu;
 Memory memory;
+Cartridge* cart = nullptr;
 Screen screen;
 std::ostream& logger = std::clog;
 
@@ -23,9 +24,9 @@ void run_loop(Console& console)
 		//if (tick - prev_tick > 100) {
 		//printf("cpu cyc: %u, ppu cyc: %u, ppu scanline: %u\n", 
 		//	console.cpu.cycle, console.ppu.cycle, console.ppu.scan_line);
-		logger << cpu.take_snapshot().str() << '\n';
+		LOG_FMT("%s", cpu.take_snapshot().str().c_str());
 		console.step();
-		screen.update();
+		//screen.render();
 		//	prev_tick = tick;
 		//}
 	}

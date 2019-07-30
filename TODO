@@ -1,7 +1,4 @@
 PPUDATA should read/write from vram
 PPU::2007 should read/write from vram not ram
-
-write scripts (bash? lua? perl/python? batsh? fish?) 
- - run nestest
- - run fceux with lua script
+proper error handling and logging
 

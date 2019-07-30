@@ -37,7 +37,7 @@ function printnesemulog(n)
 end
 
 io.write"running 2s...\n"
-exfmt([[timeout 2s %s/nesemu "%s" 2> %s]], wd, romfile, nesemulog)
+exfmt([[timeout 2s %s/nesemu_dbg "%s" 2> %s]], wd, romfile, nesemulog)
 exfmt([[fceux "%s" --loadlua %s/scripts/fceuxlog.lua > %s]], romfile, wd, fceuxlog)
 io.write"done\n"
 
