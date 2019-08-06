@@ -1,5 +1,6 @@
 #include "screen.h"
 #include "common.h"
+#include "config.h"
 
 static void sdl_assert(bool cond)
 {
@@ -78,4 +79,9 @@ void Screen::render()
 	}
 
 	SDL_UpdateWindowSurface(window);
+}
+
+uint8_t Screen::get_joypad_state(int controller_number)
+{
+	return joypad_state[controller_number];
 }

@@ -182,20 +182,15 @@ private:
 	uint8_t attributetable_byte = 0;
 	uint8_t low_tile_byte = 0;
 	uint8_t high_tile_byte = 0;
-	//uint64_t tile_data = 0;
 
 	// Background shift registers:
 	// TODO: rename or remove these
-	uint8_t atShiftL, atShiftH; 
-	uint16_t bgShiftL, bgShiftH;
-	bool atLatchL, atLatchH;
-
-	// sprite temporary variables
-	//unsigned sprite_count = 0;
-	//std::array<uint32_t, 8> sprite_patterns;
-	//std::array<uint8_t, 8> sprite_positions;
-	//std::array<uint8_t, 8> sprite_priorities;
-	//std::array<uint8_t, 8> sprite_indexes;
+	uint8_t attribute_shift_low;
+	uint8_t attribute_shift_high; 
+	uint16_t background_shift_low;
+	uint16_t background_shift_high;
+	bool attribute_latch_low; 
+	bool attribute_latch_high;
 
 	Control control;
 	Mask mask;

@@ -239,11 +239,11 @@ uint16_t Ppu::bg_addr()
 /* Put new data into the shift registers */
 void Ppu::reload_shift()
 {
-	bgShiftL = (bgShiftL & 0xFF00) | low_tile_byte;
-	bgShiftH = (bgShiftH & 0xFF00) | high_tile_byte;
+	background_shift_low = (background_shift_low & 0xFF00) | low_tile_byte;
+	background_shift_high = (background_shift_high & 0xFF00) | high_tile_byte;
 
-	atLatchL = (attributetable_byte & 1);
-	atLatchH = (attributetable_byte & 2);
+	attribute_latch_low = (attributetable_byte & 1);
+	attribute_latch_high = (attributetable_byte & 2);
 }
 
 /* Clear secondary OAM */
@@ -331,9 +331,11 @@ void Ppu::pixel()
 	if (scan_line < 240 && x_ >= 0 && x_ < 256) {
 		// Background:
 		if (mask.show_background && !(!mask.show_left_background && x_ < 8)) {
-			palette_nr = (NTH_BIT(bgShiftH, 15 - x) << 1) | NTH_BIT(bgShiftL, 15 - x);
+			palette_nr = (NTH_BIT(background_shift_high, 15 - x) << 1) 
+				| NTH_BIT(background_shift_low, 15 - x);
 			if (palette_nr) {
-				palette_nr |= ((NTH_BIT(atShiftH,  7 - x) << 1) | NTH_BIT(atShiftL,  7 - x)) << 2;
+				palette_nr |= ((NTH_BIT(attribute_shift_high,  7 - x) << 1) 
+					| NTH_BIT(attribute_shift_low,  7 - x)) << 2;
 			}
 		}
 		// Sprites:
@@ -372,10 +374,10 @@ void Ppu::pixel()
 		screen.set_bg(scan_line, x_, palette.at(read(0x3F00 + (rendering() ? palette_nr : 0))));
 	}
 	// Perform background shifts:
-	bgShiftL <<= 1; 
-	bgShiftH <<= 1;
-	atShiftL = (atShiftL << 1) | atLatchL;
-	atShiftH = (atShiftH << 1) | atLatchH;
+	background_shift_low <<= 1; 
+	background_shift_high <<= 1;
+	attribute_shift_low = (attribute_shift_low << 1) | attribute_latch_low;
+	attribute_shift_high = (attribute_shift_high << 1) | attribute_latch_high;
 }
 
 

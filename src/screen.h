@@ -10,6 +10,8 @@
 #include <iostream>
 #include <memory>
 
+#include "controller.h"
+
 using Color = uint32_t;
 
 const size_t display_width = 256;
@@ -30,6 +32,8 @@ public:
 	void swap();
 	void render();
 
+	uint8_t get_joypad_state(int controller_number);
+
 private:
 	SDL_Window* window;
 	SDL_Surface* surface;
@@ -38,5 +42,6 @@ private:
 };
 
 extern Screen screen;
+extern uint8_t joypad_state[2];
 
 #endif

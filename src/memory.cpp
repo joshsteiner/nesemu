@@ -1,5 +1,6 @@
 #include "memory.h"
 #include "common.h"
+#include "controller.h"
 
 #include <cassert>
 #include <sstream>
@@ -15,9 +16,13 @@ uint8_t Memory::read(Extended_addr addr)
 		return ppu.read_register(0x2000 + addr % 8);
 	case 0x4014:              
 		return ppu.read_register(addr);
-	case 0x4015 ... 0x4017:   
+	case 0x4015:   
 		LOG_FMT("read from unimplemented memory region %04X", addr); 
 		return 0;
+	case 0x4016:
+		return controllers.read_state(0);
+	case 0x4017:
+		return controllers.read_state(1);
 	case 0x6000 ... 0xFFFF:   
 		return mapper.read(addr);
 	default:
@@ -49,7 +54,7 @@ void Memory::write(Extended_addr addr, uint8_t value)
 		LOG("APU register write");
 		break;
 	case 0x4016:
-		LOG("controller write");
+		controllers.write_strobe(value & 1);
 		break;
 	case 0x4018 ... 0x5FFF:
 		// I/O registers

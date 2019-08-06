@@ -6,7 +6,7 @@ FLAGS_RELEASE = $(FLAGS_COMMON) -O2
 
 LINK_FLAGS = -lSDL2
 
-OBJS           = cpu ppu memory screen cart
+OBJS           = cpu ppu memory screen cart controller
 OBJS_CPP       = $(patsubst %, src/%.cpp, $(OBJS))
 OBJS_H         = $(patsubst %, src/%.h, $(OBJS))
 OBJS_RELEASE_O = $(patsubst %, build/release/%.o, $(OBJS))

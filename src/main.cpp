@@ -2,13 +2,16 @@
 
 #include "nesemu.h"
 #include "common.h"
+#include "config.h"
 
 Cpu cpu;
 Ppu ppu;
 Memory memory;
 Cartridge* cart = nullptr;
 Screen screen;
+Controllers controllers;
 std::ostream& logger = std::clog;
+uint8_t joypad_state[2];
 
 void run_loop(Console& console)
 {
@@ -18,6 +21,30 @@ void run_loop(Console& console)
 			switch (event.type) {
 			case SDL_QUIT:
 				return;
+			case SDL_KEYDOWN:
+				switch (event.key.keysym.sym) {
+				case JOYPAD_1_A:      joypad_state[0] |= (1 << 0); break;
+				case JOYPAD_1_B:      joypad_state[0] |= (1 << 1); break;
+				case JOYPAD_1_SELECT: joypad_state[0] |= (1 << 2); break;
+				case JOYPAD_1_START:  joypad_state[0] |= (1 << 3); break;
+				case JOYPAD_1_UP:     joypad_state[0] |= (1 << 4); break;
+				case JOYPAD_1_DOWN:   joypad_state[0] |= (1 << 5); break;
+				case JOYPAD_1_LEFT:   joypad_state[0] |= (1 << 6); break;
+				case JOYPAD_1_RIGHT:  joypad_state[0] |= (1 << 7); break;
+				}
+				break;
+			case SDL_KEYUP:
+				switch (event.key.keysym.sym) {
+				case JOYPAD_1_A:      joypad_state[0] &= ~(1 << 0); break;
+				case JOYPAD_1_B:      joypad_state[0] &= ~(1 << 1); break;
+				case JOYPAD_1_SELECT: joypad_state[0] &= ~(1 << 2); break;
+				case JOYPAD_1_START:  joypad_state[0] &= ~(1 << 3); break;
+				case JOYPAD_1_UP:     joypad_state[0] &= ~(1 << 4); break;
+				case JOYPAD_1_DOWN:   joypad_state[0] &= ~(1 << 5); break;
+				case JOYPAD_1_LEFT:   joypad_state[0] &= ~(1 << 6); break;
+				case JOYPAD_1_RIGHT:  joypad_state[0] &= ~(1 << 7); break;
+				}
+				break;
 			}
 		}
 
@@ -35,6 +62,9 @@ void run_loop(Console& console)
 int main(int argc, char **argv)
 {
 	Console console;
+
+	joypad_state[0] = 0;
+	joypad_state[1] = 0;
 
 	try {
 		if (argc < 2) {
