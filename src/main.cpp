@@ -15,51 +15,51 @@ uint8_t joypad_state[2];
 
 void run_loop(Console& console)
 {
+	SDL_Event event;
+	unsigned cpu_cycles = 0;
+
 	for (;;) {
-		SDL_Event event;
-		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-			case SDL_QUIT:
-				return;
-			case SDL_KEYDOWN:
-				switch (event.key.keysym.sym) {
-				case JOYPAD_1_A:      joypad_state[0] |= (1 << 0); break;
-				case JOYPAD_1_B:      joypad_state[0] |= (1 << 1); break;
-				case JOYPAD_1_SELECT: joypad_state[0] |= (1 << 2); break;
-				case JOYPAD_1_START:  joypad_state[0] |= (1 << 3); break;
-				case JOYPAD_1_UP:     joypad_state[0] |= (1 << 4); break;
-				case JOYPAD_1_DOWN:   joypad_state[0] |= (1 << 5); break;
-				case JOYPAD_1_LEFT:   joypad_state[0] |= (1 << 6); break;
-				case JOYPAD_1_RIGHT:  joypad_state[0] |= (1 << 7); break;
+		if (cpu_cycles == 0) {
+			while (SDL_PollEvent(&event)) {
+				switch (event.type) {
+				case SDL_QUIT:
+					return;
+				case SDL_KEYDOWN:
+					switch (event.key.keysym.sym) {
+					case JOYPAD_1_A:      joypad_state[0] |= (1 << 0); break;
+					case JOYPAD_1_B:      joypad_state[0] |= (1 << 1); break;
+					case JOYPAD_1_SELECT: joypad_state[0] |= (1 << 2); break;
+					case JOYPAD_1_START:  joypad_state[0] |= (1 << 3); break;
+					case JOYPAD_1_UP:     joypad_state[0] |= (1 << 4); break;
+					case JOYPAD_1_DOWN:   joypad_state[0] |= (1 << 5); break;
+					case JOYPAD_1_LEFT:   joypad_state[0] |= (1 << 6); break;
+					case JOYPAD_1_RIGHT:  joypad_state[0] |= (1 << 7); break;
+					}
+					break;
+				case SDL_KEYUP:
+					switch (event.key.keysym.sym) {
+					case JOYPAD_1_A:      joypad_state[0] &= ~(1 << 0); break;
+					case JOYPAD_1_B:      joypad_state[0] &= ~(1 << 1); break;
+					case JOYPAD_1_SELECT: joypad_state[0] &= ~(1 << 2); break;
+					case JOYPAD_1_START:  joypad_state[0] &= ~(1 << 3); break;
+					case JOYPAD_1_UP:     joypad_state[0] &= ~(1 << 4); break;
+					case JOYPAD_1_DOWN:   joypad_state[0] &= ~(1 << 5); break;
+					case JOYPAD_1_LEFT:   joypad_state[0] &= ~(1 << 6); break;
+					case JOYPAD_1_RIGHT:  joypad_state[0] &= ~(1 << 7); break;
+					}
+					break;
 				}
-				break;
-			case SDL_KEYUP:
-				switch (event.key.keysym.sym) {
-				case JOYPAD_1_A:      joypad_state[0] &= ~(1 << 0); break;
-				case JOYPAD_1_B:      joypad_state[0] &= ~(1 << 1); break;
-				case JOYPAD_1_SELECT: joypad_state[0] &= ~(1 << 2); break;
-				case JOYPAD_1_START:  joypad_state[0] &= ~(1 << 3); break;
-				case JOYPAD_1_UP:     joypad_state[0] &= ~(1 << 4); break;
-				case JOYPAD_1_DOWN:   joypad_state[0] &= ~(1 << 5); break;
-				case JOYPAD_1_LEFT:   joypad_state[0] &= ~(1 << 6); break;
-				case JOYPAD_1_RIGHT:  joypad_state[0] &= ~(1 << 7); break;
-				}
-				break;
 			}
+
+			cpu_cycles = cpu.step();
 		}
 
-		//if (tick - prev_tick > 100) {
-		//printf("cpu cyc: %u, ppu cyc: %u, ppu scanline: %u\n", 
-		//	console.cpu.cycle, console.ppu.cycle, console.ppu.scan_line);
-		LOG_FMT("%s", cpu.take_snapshot().str().c_str());
-		console.step();
-		//screen.render();
-		//	prev_tick = tick;
-		//}
+		ppu.step();
+		--cpu_cycles;
 	}
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
 	Console console;
 

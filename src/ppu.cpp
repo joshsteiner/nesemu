@@ -73,7 +73,6 @@ uint8_t Ppu::read_register(uint16_t address)
 		return result;
 	}
 	case 0x2004:
-		
 		return oam_data.at(oam_address);
 	case 0x2007:
 	{

@@ -1,4 +1,0 @@
-PPUDATA should read/write from vram
-PPU::2007 should read/write from vram not ram
-proper error handling and logging
-

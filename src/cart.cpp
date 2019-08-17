@@ -17,7 +17,7 @@ Cartridge* Cartridge::from_ines(std::ifstream& file)
 	uint8_t flag6 = file.get();
 	uint8_t flag7 = file.get();
 
-	cart->mirroring = flag6 & BIT(0) ? Mirroring::vertical : Mirroring::horizontal; // ???
+	cart->mirroring = flag6 & BIT(0) ? Mirroring::vertical : Mirroring::horizontal;
 	cart->mapper = (flag7 & 0xF0) | (flag6 >> 4);
 	cart->has_battery = flag6 & BIT(1);
 
