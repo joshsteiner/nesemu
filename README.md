@@ -4,7 +4,7 @@
 * Balloon Fight 
 
 ## screenshots:
-![balloon fight](https://imgur.com/Jrbx9jj)
+![balloon fight](https://i.imgur.com/Jrbx9jj.png)
 
 ## TODO:
 * add more mappers
