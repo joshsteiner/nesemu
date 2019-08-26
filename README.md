@@ -1,7 +1,10 @@
 # nesemu
 ## working games:
 * Donkey Kong
-* Balloon Fight ![](https://imgur.com/a/G4XgLyA)
+* Balloon Fight 
+
+## screenshots:
+![balloon fight](https://imgur.com/a/G4XgLyA)
 
 ## TODO:
 * add more mappers
