@@ -13,6 +13,11 @@
 
 #define BIT(N) (1 << (N))
 
+// negative numbers point to registers
+// non-negative to normal memory addresses
+using Extended_addr = int;
+const Extended_addr a_register_ext_addr = -1;
+
 template <typename T>
 inline bool even(T x)
 {

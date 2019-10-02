@@ -1,4 +1,13 @@
 #include "cart.h"
+#include "mappers/mapper0.h"
+
+Mapper* Mapper::choose(uint8_t number)
+{
+	switch (number) {
+	case 0: return new Mapper0{};
+	default: throw "unimplemented";
+	}
+}
 
 Cartridge* Cartridge::from_ines(std::ifstream& file)
 {
@@ -18,7 +27,7 @@ Cartridge* Cartridge::from_ines(std::ifstream& file)
 	uint8_t flag7 = file.get();
 
 	cart->mirroring = flag6 & BIT(0) ? Mirroring::vertical : Mirroring::horizontal;
-	cart->mapper = (flag7 & 0xF0) | (flag6 >> 4);
+	cart->mapper = std::unique_ptr<Mapper>{ Mapper::choose((flag7 & 0xF0) | (flag6 >> 4)) };
 	cart->has_battery = flag6 & BIT(1);
 
 	bool has_trainer = flag6 & BIT(2);
@@ -44,4 +53,14 @@ Cartridge* Cartridge::from_ines(std::ifstream& file)
 	}
 
 	return cart;
+}
+
+uint8_t Cartridge::read(Extended_addr addr)
+{
+	return mapper->read(addr);
+}
+
+void Cartridge::write(Extended_addr addr, uint8_t value)
+{
+	mapper->write(addr, value);
 }

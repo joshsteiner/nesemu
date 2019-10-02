@@ -6,7 +6,7 @@ FLAGS_RELEASE = $(FLAGS_COMMON) -O3
 
 LINK_FLAGS = -lSDL2
 
-OBJS           = cpu ppu memory screen cart controller
+OBJS           = cpu ppu memory screen cart controller mappers/mapper0
 OBJS_CPP       = $(patsubst %, src/%.cpp, $(OBJS))
 OBJS_H         = $(patsubst %, src/%.h, $(OBJS))
 OBJS_RELEASE_O = $(patsubst %, build/release/%.o, $(OBJS))
@@ -24,15 +24,21 @@ nestest: test/nestest.cpp $(OBJS_DEBUG_O)
 rominfo: tools/rominfo.cpp build/debug/cart.o
 	$(COMPILER) $^ -o $@ $(FLAGS)
 
-build/release/%.o: src/%.cpp src/%.h build/release
+build/release/%.o: src/%.cpp src/%.h build/release build/release/mappers
 	$(COMPILER) -c $< -o $@ $(FLAGS_RELEASE)
 
-build/debug/%.o: src/%.cpp src/%.h build/debug
+build/debug/%.o: src/%.cpp src/%.h build/debug build/debug/mappers
 	$(COMPILER) -c $< -o $@ $(FLAGS_DEBUG)
 
 build/debug:
 	mkdir -p build/debug
 
+build/debug/mappers:
+	mkdir -p build/debug/mappers
+
 build/release:
 	mkdir -p build/release
+
+build/release/mappers:
+	mkdir -p build/release/mappers
 
