@@ -1,7 +1,6 @@
 #ifndef NESEMU_COMMON_H
 #define NESEMU_COMMON_H
 
-//#include <ostream>
 #include <iostream>
 #include <cstdint>
 
