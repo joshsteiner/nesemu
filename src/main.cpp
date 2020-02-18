@@ -5,7 +5,28 @@
 #include "config.h"
 
 std::ostream& logger = std::clog;
-uint8_t joypad_state[2];
+
+Button sdl_to_button(int x)
+{
+	switch (x) {
+		case JOYPAD_1_A:
+			return Button::a;
+		case JOYPAD_1_B:
+			return Button::b;
+		case JOYPAD_1_SELECT:
+			return Button::select;
+		case JOYPAD_1_START:
+			return Button::start;
+		case JOYPAD_1_UP:
+			return Button::up;
+		case JOYPAD_1_DOWN:
+			return Button::down;
+		case JOYPAD_1_LEFT:
+			return Button::left;
+		case JOYPAD_1_RIGHT:
+			return Button::right;
+	}
+}
 
 void run_loop(Console& console)
 {
@@ -20,26 +41,30 @@ void run_loop(Console& console)
 					return;
 				case SDL_KEYDOWN:
 					switch (event.key.keysym.sym) {
-					case JOYPAD_1_A:      joypad_state[0] |= (1 << 0); break;
-					case JOYPAD_1_B:      joypad_state[0] |= (1 << 1); break;
-					case JOYPAD_1_SELECT: joypad_state[0] |= (1 << 2); break;
-					case JOYPAD_1_START:  joypad_state[0] |= (1 << 3); break;
-					case JOYPAD_1_UP:     joypad_state[0] |= (1 << 4); break;
-					case JOYPAD_1_DOWN:   joypad_state[0] |= (1 << 5); break;
-					case JOYPAD_1_LEFT:   joypad_state[0] |= (1 << 6); break;
-					case JOYPAD_1_RIGHT:  joypad_state[0] |= (1 << 7); break;
+					case JOYPAD_1_A:
+					case JOYPAD_1_B:
+					case JOYPAD_1_SELECT:
+					case JOYPAD_1_START:
+					case JOYPAD_1_UP:
+					case JOYPAD_1_DOWN:
+					case JOYPAD_1_LEFT:
+					case JOYPAD_1_RIGHT:
+						screen.set_joypad_state(0, sdl_to_button(event.key.keysym.sym));
+						break;
 					}
 					break;
 				case SDL_KEYUP:
 					switch (event.key.keysym.sym) {
-					case JOYPAD_1_A:      joypad_state[0] &= ~(1 << 0); break;
-					case JOYPAD_1_B:      joypad_state[0] &= ~(1 << 1); break;
-					case JOYPAD_1_SELECT: joypad_state[0] &= ~(1 << 2); break;
-					case JOYPAD_1_START:  joypad_state[0] &= ~(1 << 3); break;
-					case JOYPAD_1_UP:     joypad_state[0] &= ~(1 << 4); break;
-					case JOYPAD_1_DOWN:   joypad_state[0] &= ~(1 << 5); break;
-					case JOYPAD_1_LEFT:   joypad_state[0] &= ~(1 << 6); break;
-					case JOYPAD_1_RIGHT:  joypad_state[0] &= ~(1 << 7); break;
+					case JOYPAD_1_A:
+					case JOYPAD_1_B:
+					case JOYPAD_1_SELECT:
+					case JOYPAD_1_START:
+					case JOYPAD_1_UP:
+					case JOYPAD_1_DOWN:
+					case JOYPAD_1_LEFT:
+					case JOYPAD_1_RIGHT:
+						screen.clear_joypad_state(0, sdl_to_button(event.key.keysym.sym));
+						break;
 					}
 					break;
 				}
@@ -56,9 +81,6 @@ void run_loop(Console& console)
 int main(int argc, char** argv)
 {
 	Console console;
-
-	joypad_state[0] = 0;
-	joypad_state[1] = 0;
 
 	try {
 		if (argc < 2) {

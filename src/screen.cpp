@@ -15,6 +15,9 @@ static void sdl_assert(bool cond)
 
 Screen::Screen()
 {
+	joypad_state[0] = 0;
+	joypad_state[1] = 0;
+
 	sdl_assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
 
 	window = SDL_CreateWindow(
@@ -62,7 +65,44 @@ void Screen::render()
 	SDL_UpdateWindowSurface(window);
 }
 
+static int button_mapping(Button b)
+{
+	switch (b) {
+		case Button::a:
+			return 0;
+		case Button::b:
+			return 1;
+		case Button::select:
+			return 2;
+		case Button::start:
+			return 3;
+		case Button::up:
+			return 4;
+		case Button::down:
+			return 5;
+		case Button::left:
+			return 6;
+		case Button::right:
+			return 7;
+	}
+}
+
 uint8_t Screen::get_joypad_state(int controller_number)
 {
 	return joypad_state[controller_number];
+}
+
+bool Screen::button_pressed(int controller, Button button)
+{
+	return joypad_state[controller] & BIT(button_mapping(button));
+}
+
+void Screen::set_joypad_state(int controller, Button button)
+{
+	joypad_state[controller] |= BIT(button_mapping(button));
+}
+
+void Screen::clear_joypad_state(int controller, Button button)
+{
+	joypad_state[controller] &= ~BIT(button_mapping(button));
 }
