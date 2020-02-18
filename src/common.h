@@ -18,18 +18,6 @@
 using Extended_addr = int;
 const Extended_addr a_register_ext_addr = -1;
 
-template <typename T>
-inline bool even(T x)
-{
-	return x % 2 == 0;
-}
-
-template <typename T>
-inline bool odd(T x)
-{
-	return !even(x);
-}
-
 #if LOGGING_ENABLED
   #define LOG(MSG)          fprintf(stderr, "%s:%d:%s(): " MSG "\n", __FILE__, __LINE__, __func__)
   #define LOG_FMT(MSG, ...) fprintf(stderr, "%s:%d:%s(): " MSG "\n", __FILE__, __LINE__, __func__, __VA_ARGS__)
