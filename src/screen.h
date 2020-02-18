@@ -24,9 +24,6 @@ public:
 	Screen();
 	~Screen();
 
-	Color get_fg(unsigned r, unsigned c);
-	void set_fg(unsigned r, unsigned c, Color value);
-	Color get_bg(unsigned r, unsigned c);
 	void set_bg(unsigned r, unsigned c, Color value);
 
 	void swap();

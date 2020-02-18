@@ -36,27 +36,6 @@ Screen::~Screen()
 	SDL_Quit();
 }
 
-Color Screen::get_fg(unsigned r, unsigned c)
-{
-	r %= display_height;
-	c %= display_width;
-	return front[r][c];
-}
-
-void Screen::set_fg(unsigned r, unsigned c, Color value)
-{
-	r %= display_height;
-	c %= display_width;
-	front[r][c] = value;
-}
-
-Color Screen::get_bg(unsigned r, unsigned c)
-{
-	r %= display_height;
-	c %= display_width;
-	return back[r][c];
-}
-
 void Screen::set_bg(unsigned r, unsigned c, Color value)
 {
 	LOG_FMT("set=%d,%d", r, c);
