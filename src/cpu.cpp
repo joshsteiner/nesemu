@@ -3,6 +3,9 @@
 
 #include "cpu.h"
 
+Cpu cpu;
+
+
 static uint8_t hi_byte(uint16_t addr)
 {
 	return addr >> 8;
@@ -34,7 +37,7 @@ Cpu_snapshot::Cpu_snapshot(
 
 bool Cpu_snapshot::operator==(const Cpu_snapshot& other) const
 {
-	return pc == other.pc 
+	return pc == other.pc
 		&& instr == other.instr
 		&& a == other.a
 		&& x == other.x
@@ -101,7 +104,7 @@ Op::Op(Instruction instr, Mode mode, unsigned base_cycle, Penalty penalty)
 
 bool Op::operator==(const Op& other) const
 {
-	return valid == other.valid 
+	return valid == other.valid
 		&& instr == other.instr
 		&& mode == other.mode
 		&& base_cycle == other.base_cycle
@@ -174,7 +177,7 @@ void Cpu::do_int()
 
 	status.break_ = 1;
 	status.interrupt_disable = 1;
-	cycle = (cycle + 7) % cpu_cycle_wraparound; 
+	cycle = (cycle + 7) % cpu_cycle_wraparound;
 	this->interrupt = Interrupt::none;
 }
 

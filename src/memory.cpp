@@ -2,28 +2,30 @@
 #include "common.h"
 #include "controller.h"
 
+Memory memory;
+
 #include <cassert>
 #include <sstream>
 
 uint8_t Memory::read(Extended_addr addr)
 {
 	switch (addr) {
-	case a_register_ext_addr: 
+	case a_register_ext_addr:
 		return cpu.a;
-	case 0 ... 0x1FFF:        
+	case 0 ... 0x1FFF:
 		return ram.at(addr % 0x800);
-	case 0x2000 ... 0x3FFF:   
+	case 0x2000 ... 0x3FFF:
 		return ppu.read_register(0x2000 + addr % 8);
-	case 0x4014:              
+	case 0x4014:
 		return ppu.read_register(addr);
-	case 0x4015:   
-		LOG_FMT("read from unimplemented memory region %04X", addr); 
+	case 0x4015:
+		LOG_FMT("read from unimplemented memory region %04X", addr);
 		return 0;
 	case 0x4016:
 		return controllers.read_state(0);
 	case 0x4017:
 		return controllers.read_state(1);
-	case 0x6000 ... 0xFFFF:   
+	case 0x6000 ... 0xFFFF:
 		return cart->read(addr);
 	default:
 		throw std::invalid_argument{ std::to_string(addr) };

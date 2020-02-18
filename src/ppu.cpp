@@ -1,5 +1,6 @@
 #include "ppu.h"
 
+Ppu ppu;
 
 uint16_t nt_mirror(uint16_t addr);
 
@@ -26,7 +27,7 @@ uint8_t Ppu::read(uint16_t addr)
 {
 	addr %= 0x4000;
 
-	switch(addr) { 
+	switch(addr) {
 	case 0 ... 0x1FFF:
 		return cart->vrom.at(addr);
 	case 0x2000 ... 0x3EFF:
@@ -56,7 +57,7 @@ void Ppu::write(uint16_t addr, uint8_t value)
 		if ((addr & 0x13) == 0x10) {
 			addr &= ~0x10;
 		}
-		palette_data.at(addr & 0x1F) = value; 
+		palette_data.at(addr & 0x1F) = value;
 		break;
 	}
 }
@@ -104,7 +105,7 @@ void Ppu::write_register(uint16_t address, uint8_t value)
 		oam_address = value;
 		break;
 	case 0x2004:
-		
+
 		oam_data.at(oam_address) = value;
 		++oam_address;
 		break;
@@ -131,7 +132,7 @@ void Ppu::write_register(uint16_t address, uint8_t value)
 		break;
 	case 0x2007:
 		LOG_FMT("Ppu::writeData : v=%X", v.raw);
-		write(v.raw, value); 
+		write(v.raw, value);
 		v.raw += (control.increment == 0) ? 1 : 32;
 		break;
 	case 0x4014:
@@ -195,14 +196,14 @@ void Ppu::copy_y()
 	v.nt_select |= t.nt_select & BIT(1);
 }
 
-bool Ppu::rendering() 
-{ 
-	return mask.show_background || mask.show_sprites; 
+bool Ppu::rendering()
+{
+	return mask.show_background || mask.show_sprites;
 }
 
-int Ppu::spr_height() 
-{ 
-	return control.sprite_size ? 16 : 8; 
+int Ppu::spr_height()
+{
+	return control.sprite_size ? 16 : 8;
 }
 
 /* Get CIRAM address according to mirroring */
@@ -220,19 +221,19 @@ uint16_t nt_mirror(uint16_t addr)
 
 /* Calculate graphics addresses */
 // TODO: rename these
-uint16_t Ppu::nt_addr() 
-{ 
-	return 0x2000 | (v.raw & 0xFFF); 
+uint16_t Ppu::nt_addr()
+{
+	return 0x2000 | (v.raw & 0xFFF);
 }
 
-uint16_t Ppu::at_addr() 
-{ 
-	return 0x23C0 | (v.nt_select << 10) | ((v.coarse_y / 4) << 3) | (v.coarse_x / 4); 
+uint16_t Ppu::at_addr()
+{
+	return 0x23C0 | (v.nt_select << 10) | ((v.coarse_y / 4) << 3) | (v.coarse_x / 4);
 }
 
-uint16_t Ppu::bg_addr() 
-{ 
-	return (control.background_table * 0x1000) + (nametable_byte * 16) + v.fine_y; 
+uint16_t Ppu::bg_addr()
+{
+	return (control.background_table * 0x1000) + (nametable_byte * 16) + v.fine_y;
 }
 
 /* Put new data into the shift registers */
@@ -313,7 +314,7 @@ void Ppu::load_sprites()
 }
 
 // tmp
-static inline int NTH_BIT(int x, int n) 
+static inline int NTH_BIT(int x, int n)
 {
 	return (x >> n) & 1;
 }
@@ -325,15 +326,15 @@ void Ppu::pixel()
 	uint8_t palette_nr = 0;
 	uint8_t obj_palette_nr = 0;
 	bool objPriority = 0;
-	int x_ = dot - 2; 
+	int x_ = dot - 2;
 
 	if (scan_line < 240 && x_ >= 0 && x_ < 256) {
 		// Background:
 		if (mask.show_background && !(!mask.show_left_background && x_ < 8)) {
-			palette_nr = (NTH_BIT(background_shift_high, 15 - x) << 1) 
+			palette_nr = (NTH_BIT(background_shift_high, 15 - x) << 1)
 				| NTH_BIT(background_shift_low, 15 - x);
 			if (palette_nr) {
-				palette_nr |= ((NTH_BIT(attribute_shift_high,  7 - x) << 1) 
+				palette_nr |= ((NTH_BIT(attribute_shift_high,  7 - x) << 1)
 					| NTH_BIT(attribute_shift_low,  7 - x)) << 2;
 			}
 		}
@@ -342,7 +343,7 @@ void Ppu::pixel()
 			for (int i = 7; i >= 0; --i) {
 				auto& sprite = primary_oam.sprite_at(i);
 
-				if (sprite.id == 64) { 
+				if (sprite.id == 64) {
 					continue;
 				}
 				unsigned sprX = x_ - sprite.x;
@@ -350,9 +351,9 @@ void Ppu::pixel()
 					continue;
 				}
 				if (sprite.attr.flip_horizontal) {
-					sprX ^= 7; 
+					sprX ^= 7;
 				}
-				uint8_t sprPalette = (NTH_BIT(sprite.dataH, 7 - sprX) << 1) 
+				uint8_t sprPalette = (NTH_BIT(sprite.dataH, 7 - sprX) << 1)
 					| NTH_BIT(sprite.dataL, 7 - sprX);
 				if (sprPalette == 0) {  // Transparent pixel.
 					continue;
@@ -373,7 +374,7 @@ void Ppu::pixel()
 		screen.set_bg(scan_line, x_, palette.at(read(0x3F00 + (rendering() ? palette_nr : 0))));
 	}
 	// Perform background shifts:
-	background_shift_low <<= 1; 
+	background_shift_low <<= 1;
 	background_shift_high <<= 1;
 	attribute_shift_low = (attribute_shift_low << 1) | attribute_latch_low;
 	attribute_shift_high = (attribute_shift_high << 1) | attribute_latch_high;
@@ -387,116 +388,116 @@ void Ppu::scanline_cycle(Scanline_type scanline_type)
 
 	switch (scanline_type) {
 	case Scanline_type::nmi:
-		if (dot == 1) { 
-			status.nmi_occurred = 1; 
+		if (dot == 1) {
+			status.nmi_occurred = 1;
 			if (control.nmi_output) {
 				cpu.trigger(Cpu::Interrupt::nmi);
 			}
 		}
 		break;
-	case Scanline_type::post: 
-		if (dot == 0) { 
+	case Scanline_type::post:
+		if (dot == 0) {
 			screen.swap();
 			screen.render();
 		}
 		break;
-	case Scanline_type::visible: 
+	case Scanline_type::visible:
 	case Scanline_type::pre:
 		// Sprites:
 		switch (dot) {
-		case 1: 
-			secondary_oam.clear(); 
-			if (scanline_type == Scanline_type::pre) { 
+		case 1:
+			secondary_oam.clear();
+			if (scanline_type == Scanline_type::pre) {
 				status.sprite_overflow = 0;
-				status.sprite_zero_hit = 0; 
-			} 
+				status.sprite_zero_hit = 0;
+			}
 			break;
-		case 257: 
-			eval_sprites(); 
+		case 257:
+			eval_sprites();
 			break;
-		case 321: 
-			load_sprites(); 
+		case 321:
+			load_sprites();
 			break;
 		}
 
 		// Background:
 		switch (dot) {
-		case 2 ... 255: 
+		case 2 ... 255:
 		case 322 ... 337:
 			pixel();
 			switch (dot % 8) {
 			// Nametable:
-			case 1:  
-				addr = nt_addr(); 
-				reload_shift(); 
+			case 1:
+				addr = nt_addr();
+				reload_shift();
 				break;
-			case 2:  
-				nametable_byte = read(addr);  
+			case 2:
+				nametable_byte = read(addr);
 				break;
 			// Attribute:
-			case 3: 
-				addr = at_addr(); 
+			case 3:
+				addr = at_addr();
 				break;
-			case 4: 
-				attributetable_byte = read(addr);  
-				if (v.coarse_y & 2) { 
+			case 4:
+				attributetable_byte = read(addr);
+				if (v.coarse_y & 2) {
 					attributetable_byte >>= 4;
 				}
 				if (v.coarse_y & 2) {
-					attributetable_byte >>= 2; 
+					attributetable_byte >>= 2;
 				}
 				break;
 			// Background (low bits):
-			case 5: 
-				addr = bg_addr(); 
+			case 5:
+				addr = bg_addr();
 				break;
-			case 6: 
-				low_tile_byte = read(addr);  
+			case 6:
+				low_tile_byte = read(addr);
 				break;
 			// Background (high bits):
-			case 7: 
+			case 7:
 				addr += 8;
 				break;
-			case 0: 
-				high_tile_byte = read(addr); 
+			case 0:
+				high_tile_byte = read(addr);
 				incr_x();  // h_scroll
 				break;
-			} 
+			}
 			break;
 		case 256:  // Vertical bump.
-			pixel(); 
-			high_tile_byte = read(addr); 
-			incr_y(); 
-			break;  
+			pixel();
+			high_tile_byte = read(addr);
+			incr_y();
+			break;
 		case 257:  // Update horizontal position.
-			pixel(); 
-			reload_shift(); 
-			copy_x(); //h_update(); 
-			break;  
-		case 280 ... 304: 
+			pixel();
+			reload_shift();
+			copy_x(); //h_update();
+			break;
+		case 280 ... 304:
 			if (scanline_type == Scanline_type::pre) {
 				// Update vertical position.
 				copy_y();
 			}
-			break;  
+			break;
 
 		// No shift reloading:
-		case 1:  
-			addr = nt_addr(); 
-			if (scanline_type == Scanline_type::pre) { 
+		case 1:
+			addr = nt_addr();
+			if (scanline_type == Scanline_type::pre) {
 				status.nmi_occurred = 0;
 			}
 			break;
-		case 321: 
-		case 339:  
-			addr = nt_addr(); 
+		case 321:
+		case 339:
+			addr = nt_addr();
 			break;
 		// Nametable fetch instead of attribute:
-		case 338:  
-			nametable_byte = read(addr); 
+		case 338:
+			nametable_byte = read(addr);
 			break;
-		case 340:  
-			nametable_byte = read(addr); 
+		case 340:
+			nametable_byte = read(addr);
 			if (scanline_type == Scanline_type::pre && rendering() && f) {
 				++dot;
 			}
@@ -516,16 +517,16 @@ void Ppu::scanline_cycle(Scanline_type scanline_type)
 void Ppu::step()
 {
 	switch (scan_line) {
-	case 0 ... 239:  
-		scanline_cycle(Scanline_type::visible); 
+	case 0 ... 239:
+		scanline_cycle(Scanline_type::visible);
 		break;
-	case 240:  
+	case 240:
 		scanline_cycle(Scanline_type::post);
 		break;
-	case 241: 
-		scanline_cycle(Scanline_type::nmi);	
+	case 241:
+		scanline_cycle(Scanline_type::nmi);
 		break;
-	case 261:  
+	case 261:
 		scanline_cycle(Scanline_type::pre);
 		break;
 	}

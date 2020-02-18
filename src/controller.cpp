@@ -1,6 +1,8 @@
 #include "controller.h"
 #include "screen.h"
 
+Controllers controllers;
+
 uint8_t Controllers::read_state(int controller_number)
 {
 	if (strobe) {

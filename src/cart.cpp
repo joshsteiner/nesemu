@@ -1,6 +1,8 @@
 #include "cart.h"
 #include "mappers/mapper0.h"
 
+Cartridge* cart = nullptr;
+
 Mapper* Mapper::choose(uint8_t number)
 {
 	switch (number) {

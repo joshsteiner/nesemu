@@ -4,12 +4,6 @@
 #include "common.h"
 #include "config.h"
 
-Cpu cpu;
-Ppu ppu;
-Memory memory;
-Cartridge* cart = nullptr;
-Screen screen;
-Controllers controllers;
 std::ostream& logger = std::clog;
 uint8_t joypad_state[2];
 
@@ -83,7 +77,7 @@ int main(int argc, char** argv)
 	} catch (const char* e) {
 		logger << e << '\n';
 		return EXIT_FAILURE;
-	} 
+	}
 
 	return EXIT_SUCCESS;
 }

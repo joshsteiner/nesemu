@@ -2,6 +2,8 @@
 #include "common.h"
 #include "config.h"
 
+Screen screen;
+
 static void sdl_assert(bool cond)
 {
 	if (!cond) {
