@@ -28,7 +28,7 @@ uint8_t Memory::read(Extended_addr addr)
 	case 0x6000 ... 0xFFFF:
 		return cart->read(addr);
 	default:
-		throw std::invalid_argument{ std::to_string(addr) };
+		GLOBAL_ERROR(std::to_string(addr).c_str());
 	}
 }
 
@@ -65,7 +65,7 @@ void Memory::write(Extended_addr addr, uint8_t value)
 		cart->write(addr, value);
 		break;
 	default:
-		throw std::invalid_argument{ std::to_string(addr) };
+		GLOBAL_ERROR(std::to_string(addr).c_str());
 	}
 }
 

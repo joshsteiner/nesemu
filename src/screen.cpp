@@ -9,7 +9,7 @@ static void sdl_assert(bool cond)
 	if (!cond) {
 		std::ostringstream err{ "SDL Error: " };
 		err << SDL_GetError();
-		throw err.str();
+		GLOBAL_ERROR(err.str().c_str());
 	}
 }
 

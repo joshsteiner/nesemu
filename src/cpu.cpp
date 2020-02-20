@@ -834,7 +834,7 @@ const Op& Cpu::get_op(uint8_t opcode)
 {
 	const auto& op = ops[opcode];
 	if (op == invalid_op) {
-		throw std::invalid_argument{ std::to_string(opcode) };
+		GLOBAL_ERROR(std::to_string(opcode).c_str());
 	}
 	return op;
 }

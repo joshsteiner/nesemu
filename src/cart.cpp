@@ -10,7 +10,7 @@ static void choose_mapper(Mapper& mapper, uint8_t number)
 		init_mapper0(mapper);
 		break;
 	default:
-		throw "unimplemented";
+		GLOBAL_ERROR("unimplemented");
 	}
 }
 
@@ -20,7 +20,7 @@ Cartridge* Cartridge::from_ines(std::ifstream& file)
 
 	for (int i = 0; i < 4; i++) {
 		if (file.get() != magic_const[i]) {
-			throw std::invalid_argument{ "invalid rom" };
+			GLOBAL_ERROR("invalid rom");
 		}
 	}
 

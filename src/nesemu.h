@@ -14,8 +14,8 @@ public:
 	void load(std::string path)
 	{
 		std::ifstream file{ path, std::ios::binary };
-		if (!file.is_open()) { 
-			throw "file error"; 
+		if (!file.is_open()) {
+			GLOBAL_ERROR("file error");
 		}
 		cart = Cartridge::from_ines(file);
 		ppu.reset();

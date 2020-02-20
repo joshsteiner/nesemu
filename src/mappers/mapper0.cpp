@@ -24,7 +24,7 @@ uint8_t mapper0_read(Extended_addr addr)
 	case 0x0000 ... 0x1FFF:
 		return cart->vrom.at(addr);
 	case 0x6000 ... 0x7FFF:
-		throw std::invalid_argument{ "save ram read" };
+		GLOBAL_ERROR("save ram read");
 	case 0x8000 ... 0xBFFF:
 	{
 		auto index = banks[0] * 0x4000 + addr - 0x8000;
@@ -36,7 +36,7 @@ uint8_t mapper0_read(Extended_addr addr)
 		return cart->rom.at(index);
 	}
 	default:
-		throw std::invalid_argument{ std::to_string(addr) };
+		GLOBAL_ERROR(std::to_string(addr).c_str());
 	}
 }
 
@@ -47,12 +47,12 @@ void mapper0_write(Extended_addr addr, uint8_t value)
 		cart->vrom.at(addr) = value;
 		break;
 	case 0x6000 ... 0x7FFF:
-		throw std::invalid_argument{ "save ram write" };
+		GLOBAL_ERROR("save ram write");
 	case 0x8000 ... 0xFFFF:
 		assert(0);
 		banks[0] = value % banks_count; // ???
 		break;
 	default:
-		throw std::invalid_argument{ std::to_string(addr) };
+		GLOBAL_ERROR(std::to_string(addr).c_str());
 	}
 }

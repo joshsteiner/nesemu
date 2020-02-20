@@ -20,7 +20,7 @@ const std::array<Color, 64> palette = {
 };
 
 enum class Scanline_type {
-	visible, post, nmi, pre 
+	visible, post, nmi, pre
 };
 
 union Vram_register {
@@ -48,15 +48,15 @@ using Bg_attr = FLAG_BYTE({
 class Name_table {
 	// TODO: mirroring
 public:
-	uint8_t& at(unsigned idx) 
-	{ 
-		return data.at(idx); 
+	uint8_t& at(unsigned idx)
+	{
+		return data.at(idx);
 	}
 
 	uint8_t get_byte(unsigned addr) const
 	{
 		if (!BETWEEN(addr, 0, 960)) {
-			throw std::invalid_argument{ "" };
+			GLOBAL_ERROR("");
 		}
 		return data.at(addr);
 	}
@@ -186,10 +186,10 @@ private:
 	// Background shift registers:
 	// TODO: rename or remove these
 	uint8_t attribute_shift_low;
-	uint8_t attribute_shift_high; 
+	uint8_t attribute_shift_high;
 	uint16_t background_shift_low;
 	uint16_t background_shift_high;
-	bool attribute_latch_low; 
+	bool attribute_latch_low;
 	bool attribute_latch_high;
 
 	Control control;
