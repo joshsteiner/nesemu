@@ -6,7 +6,6 @@
 #include <vector>
 #include <fstream>
 #include <cstdint>
-#include <memory>
 
 const size_t header_size = 16;
 const size_t trainer_size = 0x200;
@@ -20,12 +19,12 @@ enum class Mirroring {
 	vertical = 1
 };
 
-class Mapper {
-public:
-	virtual uint8_t read(Extended_addr addr) = 0;
-	virtual void write(Extended_addr addr, uint8_t value) = 0;
+struct Mapper {
+	using Read_func = uint8_t (*)(Extended_addr addr);
+	using Write_func = void (*)(Extended_addr addr, uint8_t value);
 
-	static Mapper* choose(uint8_t number);
+	Read_func read;
+	Write_func write;
 };
 
 class Cartridge {
@@ -41,7 +40,7 @@ public:
 	uint8_t read(Extended_addr addr);
 	void write(Extended_addr addr, uint8_t value);
 private:
-	std::unique_ptr<Mapper> mapper;
+	Mapper mapper;
 };
 
 extern Cartridge* cart;
