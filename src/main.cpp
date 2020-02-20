@@ -82,24 +82,13 @@ int main(int argc, char** argv)
 {
 	Console console;
 
-	try {
-		if (argc < 2) {
-			logger << "not enough arguments...\n";
-			return EXIT_FAILURE;
-		}
-
-		console.load(argv[1]);
-		run_loop(console);
-	} catch (std::exception& e) {
-		logger << e.what() << '\n';
-		return EXIT_FAILURE;
-	} catch (std::string e) {
-		logger << e << '\n';
-		return EXIT_FAILURE;
-	} catch (const char* e) {
-		logger << e << '\n';
+	if (argc < 2) {
+		logger << "not enough arguments...\n";
 		return EXIT_FAILURE;
 	}
+
+	console.load(argv[1]);
+	run_loop(console);
 
 	return EXIT_SUCCESS;
 }
